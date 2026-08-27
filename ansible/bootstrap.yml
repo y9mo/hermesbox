@@ -1,0 +1,39 @@
+---
+- name: Bootstrap Hetzner VPS
+  hosts: hcloud_server_hermesbox
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Update apt package cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install baseline administration packages
+      ansible.builtin.apt:
+        name:
+          - curl
+          - fail2ban
+          - git
+          - htop
+          - unattended-upgrades
+          - ufw
+          - vim
+        state: present
+
+    - name: Allow SSH through UFW
+      community.general.ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: Enable UFW with deny-by-default policy
+      community.general.ufw:
+        state: enabled
+        policy: deny
+
+    - name: Ensure fail2ban is enabled and running
+      ansible.builtin.service:
+        name: fail2ban
+        enabled: true
+        state: started

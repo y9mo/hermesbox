@@ -1,0 +1,93 @@
+---
+- name: Install and join Tailscale
+  hosts: hcloud_server_hermesbox
+  become: true
+  gather_facts: true
+
+  vars:
+    tailscale_hostname: hermesbox
+    tailscale_tag: tag:hermes
+    tailscale_enable_ssh: true
+    tailscale_ephemeral: false
+    tailscale_preauthorized: true
+    tailscale_auth_key: >-
+      {{ lookup('env', 'TAILSCALE_AUTH_KEY')
+         | default(lookup('env', 'TS_API_CLIENT_SECRET'), true) }}
+
+  tasks:
+    - name: Ensure Tailscale auth material is available
+      ansible.builtin.assert:
+        that:
+          - tailscale_auth_key | length > 0
+        fail_msg: >-
+          Set TS_API_CLIENT_SECRET to a Tailscale OAuth client secret with the
+          auth_keys scope, or set TAILSCALE_AUTH_KEY to a generated auth key.
+
+    - name: Ensure apt prerequisites are installed
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+        state: present
+        update_cache: true
+
+    - name: Ensure apt keyring directory exists
+      ansible.builtin.file:
+        path: /usr/share/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Install Tailscale apt signing key
+      ansible.builtin.get_url:
+        url: https://pkgs.tailscale.com/stable/debian/trixie.noarmor.gpg
+        dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+        mode: "0644"
+
+    - name: Install Tailscale apt source
+      ansible.builtin.get_url:
+        url: https://pkgs.tailscale.com/stable/debian/trixie.tailscale-keyring.list
+        dest: /etc/apt/sources.list.d/tailscale.list
+        mode: "0644"
+
+    - name: Install Tailscale
+      ansible.builtin.apt:
+        name: tailscale
+        state: present
+        update_cache: true
+
+    - name: Enable and start tailscaled
+      ansible.builtin.systemd:
+        name: tailscaled
+        enabled: true
+        state: started
+
+    - name: Read Tailscale status
+      ansible.builtin.command:
+        argv:
+          - tailscale
+          - status
+          - --json
+      register: tailscale_status
+      changed_when: false
+      failed_when: false
+
+    - name: Join tailnet
+      ansible.builtin.command:
+        argv:
+          - tailscale
+          - up
+          - >-
+            --auth-key={{ tailscale_auth_key }}?ephemeral={{ tailscale_ephemeral | string | lower }}&preauthorized={{ tailscale_preauthorized | string | lower }}
+          - --hostname={{ tailscale_hostname }}
+          - --advertise-tags={{ tailscale_tag }}
+          - "{{ '--ssh' if tailscale_enable_ssh else '--ssh=false' }}"
+      when: >-
+        tailscale_status.rc != 0 or
+        ((tailscale_status.stdout | default('{}') | from_json).BackendState | default('') != 'Running')
+      no_log: true
+
+    - name: Allow Tailscale direct UDP connections through UFW
+      community.general.ufw:
+        rule: allow
+        port: "41641"
+        proto: udp

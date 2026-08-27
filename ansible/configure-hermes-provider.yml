@@ -1,0 +1,76 @@
+---
+- name: Configure Hermes Agent provider
+  hosts: hcloud_server_hermesbox
+  become: true
+  gather_facts: false
+
+  vars:
+    hermes_provider: deepseek
+    hermes_model: deepseek-chat
+    hermes_api_key_env: DEEPSEEK_API_KEY
+    hermes_api_key: "{{ lookup('env', hermes_api_key_env) }}"
+    hermes_base_url: https://api.deepseek.com/v1
+    hermes_env_path: /root/.hermes/.env
+
+  tasks:
+    - name: Require provider API key in controller environment
+      ansible.builtin.assert:
+        that:
+          - hermes_api_key | length > 0
+        fail_msg: "Set {{ hermes_api_key_env }} in your local shell before running this playbook."
+
+    - name: Ensure Hermes config directory exists
+      ansible.builtin.file:
+        path: /root/.hermes
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Store Hermes provider API key
+      ansible.builtin.lineinfile:
+        path: "{{ hermes_env_path }}"
+        regexp: "^{{ hermes_api_key_env }}="
+        line: "{{ hermes_api_key_env }}={{ hermes_api_key }}"
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
+    - name: Configure Hermes provider
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/hermes
+          - config
+          - set
+          - model.provider
+          - "{{ hermes_provider }}"
+      changed_when: true
+
+    - name: Configure Hermes model
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/hermes
+          - config
+          - set
+          - model.default
+          - "{{ hermes_model }}"
+      changed_when: true
+
+    - name: Configure Hermes base URL
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/hermes
+          - config
+          - set
+          - model.base_url
+          - "{{ hermes_base_url }}"
+      changed_when: true
+      when: hermes_base_url | length > 0
+
+    - name: Run Hermes doctor after provider setup
+      ansible.builtin.command:
+        cmd: /usr/local/bin/hermes doctor
+      changed_when: false
+      failed_when: false

@@ -1,0 +1,193 @@
+---
+- name: Configure Hermes Agent Discord gateway
+  hosts: hcloud_server_hermesbox
+  become: true
+  gather_facts: false
+
+  vars:
+    discord_bot_token: "{{ lookup('env', 'DISCORD_BOT_TOKEN') }}"
+    discord_allowed_users: "{{ lookup('env', 'DISCORD_ALLOWED_USERS') }}"
+    discord_allowed_roles: "{{ lookup('env', 'DISCORD_ALLOWED_ROLES') }}"
+    discord_home_channel: "{{ lookup('env', 'DISCORD_HOME_CHANNEL') }}"
+    discord_home_channel_name: "{{ lookup('env', 'DISCORD_HOME_CHANNEL_NAME') | default('Home', true) }}"
+    discord_require_mention: "true"
+    discord_auto_thread: "true"
+    discord_reactions: "true"
+    # Discord channel IDs for this server:
+    # browse, market-briefings, and wizard-home.
+    discord_free_response_channels: "1541029550073454643"
+    discord_allowed_channels: "1523115051907813497,1541029550073454643,1515000720854618213"
+    whatsapp_enabled: "false"
+    hermes_env_path: /root/.hermes/.env
+    hermes_install_gateway_service: false
+
+  tasks:
+    - name: Require Discord bot token in controller environment
+      ansible.builtin.assert:
+        that:
+          - discord_bot_token | length > 0
+        fail_msg: "Set DISCORD_BOT_TOKEN in your local shell before running this playbook."
+
+    - name: Require at least one Discord allowlist
+      ansible.builtin.assert:
+        that:
+          - discord_allowed_users | length > 0 or discord_allowed_roles | length > 0
+        fail_msg: "Set DISCORD_ALLOWED_USERS or DISCORD_ALLOWED_ROLES in your local shell before running this playbook."
+
+    - name: Ensure Hermes config directory exists
+      ansible.builtin.file:
+        path: /root/.hermes
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Configure Discord secret token
+      ansible.builtin.lineinfile:
+        path: "{{ hermes_env_path }}"
+        regexp: "^DISCORD_BOT_TOKEN="
+        line: "DISCORD_BOT_TOKEN={{ discord_bot_token }}"
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
+    - name: Configure Discord allowed users
+      ansible.builtin.lineinfile:
+        path: "{{ hermes_env_path }}"
+        regexp: "^DISCORD_ALLOWED_USERS="
+        line: "DISCORD_ALLOWED_USERS={{ discord_allowed_users }}"
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
+      when: discord_allowed_users | length > 0
+
+    - name: Configure Discord allowed roles
+      ansible.builtin.lineinfile:
+        path: "{{ hermes_env_path }}"
+        regexp: "^DISCORD_ALLOWED_ROLES="
+        line: "DISCORD_ALLOWED_ROLES={{ discord_allowed_roles }}"
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
+      when: discord_allowed_roles | length > 0
+
+    - name: Configure Discord gateway behavior
+      ansible.builtin.lineinfile:
+        path: "{{ hermes_env_path }}"
+        regexp: "^{{ item.key }}="
+        line: "{{ item.key }}={{ item.value }}"
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
+      loop:
+        - key: DISCORD_REQUIRE_MENTION
+          value: "{{ discord_require_mention }}"
+        - key: DISCORD_AUTO_THREAD
+          value: "{{ discord_auto_thread }}"
+        - key: DISCORD_REACTIONS
+          value: "{{ discord_reactions }}"
+
+    - name: Configure Discord free-response channels
+      ansible.builtin.lineinfile:
+        path: "{{ hermes_env_path }}"
+        regexp: "^DISCORD_FREE_RESPONSE_CHANNELS="
+        line: "DISCORD_FREE_RESPONSE_CHANNELS={{ discord_free_response_channels }}"
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
+      when: discord_free_response_channels | length > 0
+
+    - name: Configure Discord allowed channels
+      ansible.builtin.lineinfile:
+        path: "{{ hermes_env_path }}"
+        regexp: "^DISCORD_ALLOWED_CHANNELS="
+        line: "DISCORD_ALLOWED_CHANNELS={{ discord_allowed_channels }}"
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
+      when: discord_allowed_channels | length > 0
+
+    - name: Configure Discord channel policy in Hermes YAML
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/hermes
+          - config
+          - set
+          - "discord.{{ item.key }}"
+          - "{{ item.value }}"
+      loop:
+        - key: allowed_channels
+          value: "{{ discord_allowed_channels }}"
+        - key: free_response_channels
+          value: "{{ discord_free_response_channels }}"
+      when: item.value | length > 0
+      changed_when: true
+
+    - name: Disable unused WhatsApp gateway integration
+      ansible.builtin.lineinfile:
+        path: "{{ hermes_env_path }}"
+        regexp: "^WHATSAPP_ENABLED="
+        line: "WHATSAPP_ENABLED={{ whatsapp_enabled }}"
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Remove stale WhatsApp setup values
+      ansible.builtin.lineinfile:
+        path: "{{ hermes_env_path }}"
+        regexp: "^{{ item }}="
+        state: absent
+      loop:
+        - WHATSAPP_MODE
+        - WHATSAPP_ALLOWED_USERS
+
+    - name: Explicitly disable the unused WhatsApp platform in Hermes config
+      ansible.builtin.command:
+        cmd: /usr/local/bin/hermes config set platforms.whatsapp.enabled false
+      changed_when: true
+
+    - name: Remove the unused WhatsApp platform toolset
+      ansible.builtin.command:
+        cmd: /usr/local/bin/hermes config set platform_toolsets.whatsapp "[]"
+      changed_when: true
+
+    - name: Configure Discord home channel
+      ansible.builtin.lineinfile:
+        path: "{{ hermes_env_path }}"
+        regexp: "^{{ item.key }}="
+        line: "{{ item.key }}={{ item.value }}"
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
+      loop:
+        - key: DISCORD_HOME_CHANNEL
+          value: "{{ discord_home_channel }}"
+        - key: DISCORD_HOME_CHANNEL_NAME
+          value: "{{ discord_home_channel_name }}"
+      when: discord_home_channel | length > 0
+
+    - name: Install Hermes gateway system service
+      ansible.builtin.command:
+        cmd: /usr/local/bin/hermes gateway --accept-hooks install --system --run-as-user root --force
+        stdin: "n\ny\n"
+      when: hermes_install_gateway_service | bool
+
+    - name: Restart Hermes gateway service
+      ansible.builtin.command:
+        cmd: /usr/local/bin/hermes gateway --accept-hooks restart
+      when: hermes_install_gateway_service | bool
+
+    - name: Show Hermes gateway status
+      ansible.builtin.command:
+        cmd: /usr/local/bin/hermes gateway --accept-hooks status
+      changed_when: false
+      failed_when: false

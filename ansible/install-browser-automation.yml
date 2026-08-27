@@ -1,0 +1,248 @@
+---
+- name: Install browser automation for Hermes
+  hosts: hcloud_server_hermesbox
+  become: true
+  gather_facts: true
+
+  vars:
+    browser_automation_dir: /opt/hermes-browser-automation
+    browser_automation_venv: /opt/hermes-browser-automation/venv
+    browser_use_version: "0.13.3"
+    playwright_version: "1.60.0"
+    chromium_path: /usr/bin/chromium
+    browser_use_config_dir: /root/.config/browseruse
+    browser_use_mcp_config_path: /root/.config/browseruse/hermes-mcp-config.json
+    browser_use_mcp_tools:
+      - browser_navigate
+      - browser_click
+      - browser_type
+      - browser_get_state
+      - browser_extract_content
+      - browser_get_html
+      - browser_screenshot
+      - browser_scroll
+      - browser_go_back
+      - browser_list_tabs
+      - browser_switch_tab
+      - browser_close_tab
+      - retry_with_browser_use_agent
+
+  tasks:
+    - name: Install browser automation system packages
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - chromium
+          - fonts-liberation
+          - python3-pip
+          - python3-venv
+        state: present
+        update_cache: true
+
+    - name: Ensure browser automation directory exists
+      ansible.builtin.file:
+        path: "{{ browser_automation_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Create browser automation virtualenv
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -m
+          - venv
+          - "{{ browser_automation_venv }}"
+        creates: "{{ browser_automation_venv }}/bin/python"
+
+    - name: Ensure pip tooling is present in browser automation virtualenv
+      ansible.builtin.pip:
+        name:
+          - pip
+          - wheel
+        state: present
+        virtualenv: "{{ browser_automation_venv }}"
+
+    - name: Install pinned browser automation Python packages
+      ansible.builtin.pip:
+        name:
+          - "browser-use[core]=={{ browser_use_version }}"
+          - "playwright=={{ playwright_version }}"
+        virtualenv: "{{ browser_automation_venv }}"
+
+    - name: Install split availability checker
+      ansible.builtin.copy:
+        src: files/check-split-availability.py
+        dest: "{{ browser_automation_dir }}/check-split-availability.py"
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Install split availability checker wrapper
+      ansible.builtin.copy:
+        dest: /usr/local/bin/check-split-availability
+        owner: root
+        group: root
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          if [ -f /root/.hermes/.env ]; then
+            set -a
+            . /root/.hermes/.env
+            set +a
+          fi
+          exec {{ browser_automation_venv }}/bin/python {{ browser_automation_dir }}/check-split-availability.py --chromium {{ chromium_path }} "$@"
+
+    - name: Install browser-use CLI wrapper
+      ansible.builtin.copy:
+        dest: /usr/local/bin/browser-use
+        owner: root
+        group: root
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          if [ -f /root/.hermes/.env ]; then
+            set -a
+            . /root/.hermes/.env
+            set +a
+          fi
+          exec {{ browser_automation_venv }}/bin/browser-use "$@"
+
+    - name: Ensure Browser Use config directory exists
+      ansible.builtin.file:
+        path: "{{ browser_use_config_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Configure Browser Use MCP defaults for DeepSeek
+      ansible.builtin.copy:
+        dest: "{{ browser_use_mcp_config_path }}"
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          {
+            "browser_profile": {
+              "hermes-mcp": {
+                "id": "hermes-mcp",
+                "default": true,
+                "headless": true,
+                "user_data_dir": "/root/.config/browseruse/profiles/hermes-mcp",
+                "downloads_path": "/root/Downloads/browser-use-mcp"
+              }
+            },
+            "llm": {
+              "deepseek": {
+                "id": "deepseek",
+                "default": true,
+                "model": "deepseek-chat",
+                "base_url": "https://api.deepseek.com/v1",
+                "temperature": 0.7
+              }
+            },
+            "agent": {
+              "default": {
+                "id": "default",
+                "default": true
+              }
+            }
+          }
+
+    - name: Install Browser Use MCP wrapper
+      ansible.builtin.copy:
+        dest: /usr/local/bin/browser-use-mcp
+        owner: root
+        group: root
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          if [ -f /root/.hermes/.env ]; then
+            set -a
+            . /root/.hermes/.env
+            set +a
+          fi
+          if [ -n "$DEEPSEEK_API_KEY" ] && [ -z "$OPENAI_API_KEY" ]; then
+            export OPENAI_API_KEY="$DEEPSEEK_API_KEY"
+          fi
+          export BROWSER_USE_CONFIG_PATH={{ browser_use_mcp_config_path }}
+          export BROWSER_USE_LLM_MODEL="${BROWSER_USE_LLM_MODEL:-deepseek-chat}"
+          export BROWSER_USE_HEADLESS="${BROWSER_USE_HEADLESS:-true}"
+          exec {{ browser_automation_venv }}/bin/browser-use --mcp "$@"
+
+    - name: Verify browser automation imports
+      ansible.builtin.command:
+        argv:
+          - "{{ browser_automation_venv }}/bin/python"
+          - -c
+          - "import browser_use; import playwright; print('browser automation ok')"
+      changed_when: false
+
+    - name: Verify Browser Use CLI
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/browser-use
+          - doctor
+      changed_when: false
+      failed_when: false
+
+    - name: Register Browser Use MCP server in Hermes config
+      ansible.builtin.command:
+        argv:
+          - /usr/local/lib/hermes-agent/venv/bin/python3
+          - -c
+          - |
+            from pathlib import Path
+            import yaml
+
+            config_path = Path("/root/.hermes/config.yaml")
+            config = yaml.safe_load(config_path.read_text()) or {}
+
+            config.setdefault("mcp_servers", {})["browser-use"] = {
+                "command": "/usr/local/bin/browser-use-mcp",
+                "enabled": True,
+                "tools": {
+                    "include": {{ browser_use_mcp_tools | to_json }},
+                },
+            }
+
+            platform_toolsets = config.setdefault("platform_toolsets", {})
+            for platform, default_toolset in {
+                "cli": "hermes-cli",
+                "discord": "hermes-discord",
+            }.items():
+                current = platform_toolsets.get(platform)
+                if not isinstance(current, list):
+                    current = [default_toolset]
+                current = [str(item) for item in current if str(item) != "no_mcp"]
+                if "browser-use" not in current:
+                    current.append("browser-use")
+                platform_toolsets[platform] = current
+
+            config_path.write_text(yaml.safe_dump(config, sort_keys=False))
+      environment:
+        HOME: /root
+
+    - name: List Hermes MCP servers
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/hermes
+          - mcp
+          - list
+      environment:
+        HOME: /root
+      changed_when: false
+      failed_when: false
+
+    - name: Restart Hermes gateway if installed
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/hermes
+          - gateway
+          - --accept-hooks
+          - restart
+      register: hermes_gateway_restart
+      changed_when: hermes_gateway_restart.rc == 0
+      failed_when: false

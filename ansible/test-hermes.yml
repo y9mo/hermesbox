@@ -1,0 +1,18 @@
+---
+- name: Smoke test Hermes Agent
+  hosts: hcloud_server_hermesbox
+  become: true
+  gather_facts: false
+
+  vars:
+    hermes_test_prompt: Reply with one sentence confirming Hermes works.
+
+  tasks:
+    - name: Run Hermes one-shot chat smoke test
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/hermes
+          - chat
+          - -q
+          - "{{ hermes_test_prompt }}"
+      changed_when: false

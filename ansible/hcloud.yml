@@ -1,0 +1,15 @@
+---
+plugin: hetzner.hcloud.hcloud
+token: "{{ lookup('env', 'HCLOUD_TOKEN') }}"
+connect_with: public_ipv4
+
+compose:
+  ansible_python_interpreter: "'/usr/bin/python3.13'"
+
+keyed_groups:
+  - key: hcloud_name
+    prefix: hcloud_server
+    separator: "_"
+  - key: hcloud_labels
+    prefix: hcloud_label
+    separator: "_"

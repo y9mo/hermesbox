@@ -1,0 +1,46 @@
+---
+- name: Install Hermes Agent
+  hosts: hcloud_server_hermesbox
+  become: true
+  gather_facts: true
+
+  vars:
+    hermes_install_script_url: https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh
+    hermes_install_script_path: /tmp/hermes-agent-install.sh
+    hermes_home: /root/.hermes
+
+  tasks:
+    - name: Install installer prerequisites
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - git
+          - nodejs
+          - npm
+        state: present
+        update_cache: true
+
+    - name: Download Hermes Agent installer
+      ansible.builtin.get_url:
+        url: "{{ hermes_install_script_url }}"
+        dest: "{{ hermes_install_script_path }}"
+        mode: "0755"
+
+    - name: Install Hermes Agent
+      ansible.builtin.command:
+        cmd: "{{ hermes_install_script_path }} --skip-setup --skip-browser --non-interactive"
+        creates: /usr/local/bin/hermes
+      environment:
+        HERMES_HOME: "{{ hermes_home }}"
+
+    - name: Check Hermes version
+      ansible.builtin.command:
+        cmd: /usr/local/bin/hermes --version
+      changed_when: false
+
+    - name: Run Hermes doctor
+      ansible.builtin.command:
+        cmd: /usr/local/bin/hermes doctor
+      changed_when: false
+      failed_when: false
