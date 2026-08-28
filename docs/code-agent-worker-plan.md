@@ -46,7 +46,9 @@ systemd service, but it never decides workflow transitions.
 | Reviewer | Codex CLI 0.150.1 |
 | Reviewer model | `gpt-5.6-sol` |
 | GitHub integration | Native GitHub REST client in Go |
-| Git authentication | Fine-grained PAT over HTTPS via `GIT_ASKPASS` |
+| GitHub API authentication | Controller-only fine-grained PAT in `GITHUB_API_TOKEN` |
+| Git authentication | Separate Git-user fine-grained PAT file via `GIT_ASKPASS` |
+| Implementer filesystem sandbox | Bubblewrap mount namespace; writable worktree/home, hidden worktree `.git` |
 | Durable state | Versioned JSON files with atomic replacement |
 | Maximum rounds | 2 implementer invocations and 2 reviews per cycle |
 | Automatic merge | Never |
@@ -109,15 +111,19 @@ Tests live beside their package as `*_test.go`. Do not create a generic
 /opt/code-agent/runs/y9mo--hermesbox--issue-<number>/
 
 /var/lib/code-agent-controller/
-/var/lib/code-agent-git/
+/var/lib/code-agent-git/.config/code-agent/github-token
+/var/lib/code-agent-git/indexes/
 /var/lib/code-agent-implementer/
 /var/lib/code-agent-reviewer/
 ```
 
-`/etc/code-agent/controller.env` contains only `GITHUB_TOKEN`. Ollama owns its
-cloud login under `/usr/share/ollama`. Codex owns its login under
-`/var/lib/code-agent-reviewer/.codex`. No agent receives another module's
-credential.
+`/etc/code-agent/controller.env` contains only `GITHUB_API_TOKEN`, used by the
+Go GitHub REST adapter. The Git transport PAT is a different secret stored at
+`/var/lib/code-agent-git/.config/code-agent/github-token`; only
+`code-agent-git` can read it. Ollama owns its cloud login under
+`/usr/share/ollama`. Codex owns its login under
+`/var/lib/code-agent-reviewer/.codex`. No model process receives either GitHub
+credential, and no secret is transported in process argv or environment.
 
 ## 5. Unix identities and permissions
 
@@ -125,8 +131,8 @@ Create these system users with `/usr/sbin/nologin` shells:
 
 | User | Purpose |
 | --- | --- |
-| `code-agent-controller` | Runs the Go binary and reads the GitHub PAT |
-| `code-agent-git` | Owns repository metadata and executes Git |
+| `code-agent-controller` | Runs the Go binary and reads the GitHub API PAT |
+| `code-agent-git` | Owns repository metadata, Git transport PAT, and executes Git |
 | `code-agent-implementer` | Runs OpenCode and repository verification |
 | `code-agent-reviewer` | Runs Codex read-only |
 
@@ -140,8 +146,14 @@ Create groups `code-agent-workspace` and `code-agent-git-read`.
 - `runs` is `code-agent-controller:code-agent-controller` mode `0750`.
 - `repos` is `code-agent-git:code-agent-git-read` mode `2750`.
 - `worktrees` is `code-agent-git:code-agent-workspace` mode `2770`.
+- Each linked worktree `.git` file is
+  `code-agent-git:code-agent-git-read` mode `0440` immediately after creation.
+- `/var/lib/code-agent-git` and its `.config/code-agent` and `indexes`
+  subdirectories are `code-agent-git:code-agent-git` mode `0700`.
+- `github-token` is `code-agent-git:code-agent-git` mode `0400`, contains one
+  token followed by one newline, and is never copied into controller state.
 - Files created in worktrees use umask `0007`.
-- Reviewer and implementer home directories are mode `0700`.
+- All four home directories are mode `0700`.
 
 The controller may use passwordless sudo only to execute arbitrary commands as
 the three lower-privilege worker users. It may never sudo as root or another
@@ -155,7 +167,11 @@ code-agent-controller ALL=(code-agent-implementer) NOPASSWD: ALL
 code-agent-controller ALL=(code-agent-reviewer) NOPASSWD: ALL
 ```
 
-Every invocation uses `sudo -n -u <user> -- env -i ...`; `env -i` is mandatory.
+Every subordinate invocation uses
+`/usr/bin/sudo -n -u <user> -- /usr/bin/env -i ...`; `env -i` is mandatory.
+Only non-secret allowlisted values appear after it. The process module, not its
+callers, constructs this prefix so the identity and environment rules have one
+implementation and one test seam.
 
 ## 6. CLI contract
 
@@ -342,7 +358,15 @@ type Reviewer interface {
 }
 
 type Verifier interface {
-    Verify(context.Context, string, int) ([]CheckResult, error)
+    Verify(context.Context, VerificationRequest) ([]CheckResult, error)
+}
+
+type VerificationRequest struct {
+    RunID    string
+    Cycle    int
+    Attempt  int
+    Worktree string
+    RunDir   string
 }
 ```
 
@@ -373,11 +397,28 @@ The v1 registry admits only the four entries in section 7.
 with temporary directories and real temporary Git repositories. Do not add
 interfaces merely to mock the filesystem or Git.
 
-`process.Runner` executes an argv array without a shell. On Unix it creates a
-new process group. Timeout or context cancellation sends SIGTERM to the group,
-waits 10 seconds, then sends SIGKILL. It streams combined stdout/stderr to the
-provided log file. Exceeding the configured byte limit kills the group and
-returns `output_limit_exceeded`.
+`process.Runner` is the one deep module for subordinate execution. Its request
+contains a closed identity enum (`git`, `implementer`, or `reviewer`), argv,
+working directory, explicit non-secret environment map, optional stdin reader,
+combined-output writer, output byte limit, and sandbox mode (`none` or
+`worktree_without_git`). Callers never construct sudo, `env -i`, process-group,
+or Bubblewrap arguments themselves. The runner rejects an empty/relative argv,
+unknown identity or sandbox, any environment key named `GITHUB_API_TOKEN`,
+`GITHUB_GIT_TOKEN`, `GITHUB_TOKEN`, or `CODE_AGENT_GITHUB_TOKEN`, an
+inconsistent identity/sandbox pair, and a worktree sandbox without an absolute
+worktree and home path.
+
+The runner builds the exact sudo/environment prefix from section 5, executes
+without a shell, and creates a new Unix process group. A configured phase
+timeout is expressed by the request context. Normal completion has no grace
+timer. Only context cancellation or output-limit exhaustion sends SIGTERM to
+the process group; the runner then waits its configured termination grace and
+sends SIGKILL only if descendants remain. Production constructs the runner
+with a fixed 10-second grace. Tests construct it with a short injected grace;
+the grace is not user configuration. It streams combined stdout/stderr to the
+provided writer and returns distinct timeout, cancellation, output-limit,
+start, and exit failures. Stdin is copied from the supplied reader and closed
+after EOF; a nil reader connects `/dev/null`.
 
 ## 9. Durable state
 
@@ -387,10 +428,40 @@ The run ID and directory name are deterministic:
 y9mo--hermesbox--issue-<number>
 ```
 
-Write `issue.json` once with the complete GitHub issue response used by the
-worker. Write `state.json` after every transition using: create a temporary file
-in the run directory, write, `fsync`, close, rename over `state.json`, then
-`fsync` the directory.
+After selecting an issue, fetch `GET /repos/y9mo/hermesbox/issues/{n}` with a
+fixed 1 MiB response-body limit, decode it, require its number/repository to
+match the selection, and enforce `max_issue_body_bytes` on the decoded UTF-8
+body. Retain the exact successful response bytes. A response over 1 MiB or
+invalid/mismatched JSON is an operational GitHub failure: create no run and
+mutate no labels. An issue body over the configured limit creates a claiming
+run with `last_error.code=invalid_issue`, then recovers/reconciles to blocked in
+the same manner as a model-label conflict. Initial run creation is atomic and
+happens before labels or Git artifacts are mutated:
+
+1. Create the deterministic sibling directory
+   `/opt/code-agent/runs/.y9mo--hermesbox--issue-N.init` with mode `0700` using
+   an exclusive create; never overwrite it.
+2. Write `issue.json` once with the complete fetched response bytes, initial
+   `state.json` with phase `claiming`, and `controller.jsonl` with its initial
+   transition event. For a model-label conflict, the claiming state has an empty
+   profile/model pair and `last_error.code=implementer_profile_conflict` so
+   recovery can finish the blocked reconciliation. Each file is mode `0640`;
+   write, `fsync`, and close each.
+3. `fsync` the temporary directory, rename it atomically to the deterministic
+   final run directory, then `fsync` the runs parent.
+4. Only after the final directory is durable may the worker reconcile labels or
+   create Git artifacts.
+
+On startup under the global lock, if the final directory is absent and the
+deterministic `.init` directory contains all three schema-valid,
+cross-consistent files, finish the rename and recover `claiming`. A partial or
+invalid `.init`, or simultaneous `.init` and final directories, blocks with
+`state_corrupt` and is never deleted automatically. Existing unexplained final
+paths also fail closed.
+
+After creation, write `state.json` after every transition using: create a
+temporary file in the run directory, write, `fsync`, close, rename over
+`state.json`, then `fsync` the directory.
 
 State schema version 1 contains:
 
@@ -401,6 +472,11 @@ attempt, revision_reason, publication_commit, started_at,
 updated_at, worktree_path, commits[], checks[], reviews[], pull_request,
 last_error, history[]
 ```
+
+In Go, declare every persisted field on its own line with its own explicit JSON
+tag. Grouped field declarations with a shared tag are prohibited. Decode state
+with unknown fields rejected, then validate all cross-field invariants before
+using it or touching external state.
 
 The JSON types are fixed by this representative complete shape; omitted values
 use empty strings, empty arrays, or `null` exactly as shown:
@@ -445,9 +521,9 @@ Use RFC3339 UTC timestamps. `cycle` starts at 1. `attempt` is 1 or 2.
 `implementer_profile` and `implementer_model` are selected during `claiming`,
 persisted before `preparing`, and reused for every attempt and recovery in the
 cycle. They change only when an operator supplies `retry --implementer`. They
-are both empty only for a terminal run blocked by conflicting model labels
-before a choice could be made. Any other partial, unknown, or mismatched pair
-makes state corrupt.
+are both empty only for `claiming`, `blocking`, or `blocked` with
+`last_error.code=implementer_profile_conflict` before a choice could be made.
+Any other partial, unknown, or mismatched pair makes state corrupt.
 
 `publication_commit` is empty before publication. Entering `publishing` first
 sets it to exactly one recorded verified commit according to section 17 and
@@ -459,7 +535,7 @@ Phases are exactly:
 
 ```text
 claiming preparing implementing verifying committing reviewing publishing
-completed blocked
+blocking completed blocked
 ```
 
 Outcomes are empty until terminal, then `completed` or `blocked`. Every history
@@ -474,10 +550,11 @@ github_unavailable github_permission_denied preparation_failed
 github_actions_present implementer_failed implementer_timeout
 implementer_output_limit implementer_no_changes change_limit_exceeded
 patch_limit_exceeded binary_change_forbidden protected_path_changed
+workspace_changed_during_validation
 verification_failed commit_failed review_failed review_timeout
 review_output_limit review_schema_invalid base_branch_advanced
 implementer_profile_conflict
-publish_failed interrupted_agent_process cancelled_by_operator
+publish_failed interrupted_agent_process workflow_timeout cancelled_by_operator
 diagnostic_log_failed state_corrupt multiple_active_runs
 ```
 
@@ -564,14 +641,16 @@ After locking:
 6. Ignore issues carrying any other worker-state label; report the conflict.
 7. Select the first remaining issue.
 8. Count configured model labels on that issue. With zero, select
-   `default_profile`. With one, select its profile. With more than one, create a
-   terminal blocked run with `implementer_profile_conflict`, leave the
-   conflicting model labels visible, and continue no further.
-9. Persist the selected profile and its full model ID, replace all configured
-   model labels with exactly the selected profile's label, and then claim the
-   issue with `agent-working`.
-10. Reject bodies larger than 65,536 bytes by marking the issue blocked and
-    posting the reason.
+   `default_profile`. With one, select its profile. With more than one, remember
+   the conflict without selecting a profile.
+9. Fetch and validate the exact individual issue response under section 9.
+10. Atomically create the run directory. A model-label conflict or oversized
+    issue body is recorded in claiming state, transitioned to `blocking`, then
+    reconciled and transitioned to terminal `blocked`; leave conflicting model
+    labels visible. Recovery repeats only the blocking reconciliation.
+11. For a valid issue, persist the selected profile/model in the initial state,
+    replace all configured model labels with exactly its label, and claim the
+    issue with `agent-working`.
 
 Only users with repository triage/write permission can apply labels, so the
 presence of `agent-ready` is the authorization gate. Model labels route an
@@ -592,14 +671,26 @@ changes cannot alter an active or recovered run.
 | `reviewing`, findings | Attempt 1: attempt 2 `implementing`; attempt 2: go `publishing` as draft |
 | `publishing`, approved | Normal PR, `agent-done`, `completed` | `blocked` |
 | `publishing`, unresolved | Draft PR, `agent-blocked`, `blocked` | `blocked` |
+| `blocking` | Reconcile blocked label/comment; go `blocked` | Remain recoverable in `blocking`; return operational error |
 
 Before every transition, persist all data produced by the previous phase. After
-every transition, reconcile the GitHub label: working for claim/preparation/
-implementation/verification/commit, review for review, done for completed, and
-blocked for blocked. Preserve unrelated labels and ensure exactly one worker
-state label remains. Also preserve exactly the selected model label and remove
-the other three configured model labels. For a pre-selection profile conflict,
-preserve all conflicting model labels so the operator can see and correct them.
+each non-terminal transition, reconcile the phase's GitHub status: working for
+claim/preparation/implementation/verification/commit, review for review, and
+blocked for `blocking`. Normal publication reconciles `agent-done` and its
+comment before cleanup and the terminal `completed` write; `blocking`
+reconciles before the terminal `blocked` write. Preserve unrelated labels and
+ensure exactly one worker-state label remains. Also preserve exactly the
+selected model label and remove the other three configured model labels. For a
+pre-selection profile conflict, preserve all conflicting model labels so the
+operator can see and correct them.
+
+Every table edge labelled `blocked` first enters non-terminal `blocking`.
+Blocking is fail-closed but never falsely successful: atomically persist the
+complete error and transition to `blocking`, reconcile labels and the marker
+comment, then transition to terminal `blocked`. If the first state write fails,
+return an operational error and do not report a blocked result. If GitHub
+reconciliation fails, remain in durable `blocking`, return the GitHub error,
+and let the next `run-once` recover it. Never discard either error.
 
 An implementer exit 0 with no Git changes is `implementer_no_changes` and
 blocks. A test failure is input to attempt 2. A nonzero or timed-out OpenCode
@@ -627,10 +718,11 @@ git --git-dir <repo-cache> branch agent/issue-N refs/remotes/origin/master
 git --git-dir <repo-cache> worktree add <worktree> agent/issue-N
 ```
 
-Use the GitHub PAT only for clone, fetch, and push. Supply it through a
-root-owned `GIT_ASKPASS` helper and the child environment; never put it in an
-argv, URL, Git config, or log. The helper returns `x-access-token` for username
-and the token for password.
+Use the Git-user PAT only for clone, fetch, and push. It remains in the fixed
+Git-user-owned file from section 4 and is never copied into an argv,
+environment, URL, Git config, state file, or log. A root-owned `GIT_ASKPASS`
+helper executes as `code-agent-git`, reads that file directly, and returns
+`x-access-token` for username and the token for password.
 
 Install `/usr/local/libexec/code-agent-git-askpass` as `root:root` mode `0755`:
 
@@ -638,13 +730,16 @@ Install `/usr/local/libexec/code-agent-git-askpass` as `root:root` mode `0755`:
 #!/bin/sh
 case "$1" in
   *Username*) printf '%s\n' x-access-token ;;
-  *Password*) printf '%s\n' "$CODE_AGENT_GITHUB_TOKEN" ;;
+  *Password*) exec /bin/cat /var/lib/code-agent-git/.config/code-agent/github-token ;;
   *) exit 1 ;;
 esac
 ```
 
-Only clone/fetch/push children receive `CODE_AGENT_GITHUB_TOKEN` and
-`GIT_ASKPASS=/usr/local/libexec/code-agent-git-askpass`.
+Only clone/fetch/push children receive
+`GIT_ASKPASS=/usr/local/libexec/code-agent-git-askpass` and
+`GIT_ASKPASS_REQUIRE=force`. They receive no token value. The token file must
+contain exactly one non-empty line no longer than 1024 bytes; installation and
+`doctor` reject other content without printing it.
 
 Before creating anything, block if the branch, worktree, remote branch, or pull
 request already exists without matching durable state. Never adopt or overwrite
@@ -655,19 +750,49 @@ master again. If its SHA changed, block with `base_branch_advanced`; do not
 rebase or publish. An operator retry starts a new cycle from the new base only
 when the branch has no pull request.
 
-OpenCode cannot access the bare repository metadata and its managed permissions
-deny all `git *` commands. The controller alone stages and commits:
+The implementer sandbox in section 13 hides the linked worktree `.git` file,
+and Unix permissions deny the implementer access to the bare repository. The
+managed OpenCode `git *` denial is defense in depth, not the security control.
+Only controller-directed commands running as `code-agent-git` inspect, stage,
+and commit.
+
+Safety inspection includes tracked, modified, deleted, and untracked content
+without changing the real index:
+
+1. Create a random candidate index path under
+   `/var/lib/code-agent-git/indexes`, validate that it did not previously exist,
+   and set `GIT_INDEX_FILE` only for candidate-index commands.
+2. Run `git read-tree HEAD`, then `git add -A` against the candidate index.
+3. Apply the changed-file count, protected-path, binary, patch-byte, and
+   whitespace gates to `git diff --cached HEAD` from that candidate index. Use
+   NUL-delimited name/numstat output. A `-` in numstat is binary and blocks
+   before patch generation. Stream
+   `git diff --cached --no-ext-diff --binary HEAD` through a counting writer
+   capped at `max_patch_bytes+1`; stop the process and return
+   `patch_limit_exceeded` on the extra byte without retaining the patch in state
+   or the controller log.
+4. Record the candidate `git write-tree` SHA. Only after every gate passes, run
+   `git add -A` against the real index and compare its `git write-tree` SHA to
+   the candidate SHA. A mismatch blocks with
+   `workspace_changed_during_validation`; do not commit.
+5. Remove the candidate index after success or handled failure. A stale
+   candidate index is never reused. Candidate indexes contain no credentials
+   and may be removed during startup while holding the global lock and when no
+   child process is active.
+
+After the real index matches, commit:
 
 ```text
 git -C <worktree> add -A
 git -C <worktree> commit -m "agent(issue #N): implementation attempt A"
 ```
 
-Before commit, reject more than 100 changed files, a patch larger than 1 MiB,
-any binary diff, or changes under `.github/workflows/` or `.github/actions/`.
-Also run `git diff --check`. The worker refuses to operate at all if the base
-branch already contains GitHub Actions workflows while `allow_github_actions`
-is false. This is intentional: pushing agent-generated code can trigger Actions.
+Reject more than 100 changed files, a patch larger than 1 MiB, any binary diff,
+or changes under `.github/workflows/` or `.github/actions/`. The worker refuses
+to operate at all if the persisted base commit contains either protected path
+while `allow_github_actions` is false. This is intentional: pushing
+agent-generated code can trigger Actions. After commit, require the worktree to
+be clean; otherwise block and never publish that commit.
 
 Push without force:
 
@@ -685,7 +810,9 @@ autoupdate, deny external directories, tasks, skills, web fetch/search,
 questions, and all Git commands; allow read, edit, glob, grep, LSP, and other
 bash commands. Deny `sudo`, `ssh`, `scp`, `curl`, and `wget` bash patterns
 explicitly. Install this exact JSON; ordering inside the `bash` object is
-significant because the last matching OpenCode permission rule wins:
+significant because the last matching OpenCode permission rule wins. These
+patterns are prompt/tool guardrails only; Bubblewrap and Unix permissions below
+are the security controls:
 
 ```json
 {
@@ -720,6 +847,46 @@ significant because the last matching OpenCode permission rule wins:
   }
 }
 ```
+
+Every implementer and verification process uses the process module's
+`worktree_without_git` sandbox. After the sudo/env prefix, the runner inserts
+this Bubblewrap command before the requested argv:
+
+```text
+/usr/bin/bwrap --die-with-parent \
+  --unshare-pid --unshare-ipc --unshare-uts \
+  --ro-bind / / \
+  --dev /dev --proc /proc --tmpfs /tmp --tmpfs /run \
+  --bind /var/lib/code-agent-implementer /var/lib/code-agent-implementer \
+  --bind <worktree> <worktree> \
+  --ro-bind /dev/null <worktree>/.git \
+  --chdir <worktree> -- <requested-argv>
+```
+
+Validate before launch that `<worktree>` is the exact configured run worktree,
+its `.git` is a regular file owned by `code-agent-git`, and its resolved target
+is inside the configured bare repository. The read-only root prevents writes
+outside the two explicit writable binds; the `/dev/null` mount makes `.git` an
+undeletable mount point and prevents reading or mutating controller Git
+metadata. Do not unshare the network namespace because OpenCode must reach
+Ollama on host loopback; network egress remains explicitly out of scope. The
+private `/run` prevents access to host D-Bus, systemd, and other runtime Unix
+sockets despite the read-only root bind. After the child exits, revalidate the
+worktree `.git` file and Git metadata before any safety inspection. Any
+mismatch blocks with `worktree_collision`.
+
+Do not pass `--new-session`: the runner never allocates a PTY, connects stdin to
+a pipe or `/dev/null`, and places sudo plus all descendants in one host process
+group. Omitting a new session keeps the Bubblewrap monitor and sandbox children
+in that group so the section-8 SIGTERM/grace/SIGKILL contract reaches every
+descendant, including processes in the PID namespace. `--die-with-parent` is
+additional crash containment, not the termination mechanism. Privileged tests
+must prove that no descendant survives either graceful or forced termination.
+
+The acceptance property is not that the implementer cannot execute a binary
+named `git`; it is that implementer and verification processes cannot read,
+replace, or mutate the worker's `.git` link, repository metadata, index, refs,
+or credentials. Managed command denial remains defense in depth.
 
 Invoke as `code-agent-implementer`:
 
@@ -756,6 +923,11 @@ environment variable is allowed.
 configured checks, protected paths, no-Git rule, no-lifecycle rule, and stop
 condition. Delimit issue title/body and repository instructions as untrusted
 data. Include a root `AGENTS.md` if present, capped at 65,536 bytes.
+
+For every implementation, revision, review, comment, and PR render, load title
+and body from the immutable run `issue.json`, decode with the 1 MiB and identity
+checks from section 9, and never substitute empty values or reconstruct the
+issue from current GitHub state. A mismatch is `state_corrupt`.
 
 `revise.md` contains the same rules plus either prior test failures or validated
 Codex findings. Prompts must tell the implementer to address findings in the
@@ -821,7 +993,10 @@ Use `HOME=/var/lib/code-agent-implementer`, `CI=true`,
 minimal PATH. Use the same exact implementer PATH and locale from section 13.
 Add only the named variables and verification-command-specific variables; do
 not inherit the controller environment. Each command receives its own timeout
-and log.
+and log. `VerificationRequest.RunDir` must equal the deterministic run directory
+for `RunID`; derive every log path from that request and reject traversal or
+mismatch. Verification uses the same `worktree_without_git` Bubblewrap sandbox
+as OpenCode, including post-run `.git` revalidation.
 
 Run all checks even after one fails, so attempt 2 gets the complete failure set.
 The attempt passes only when every exit code is zero. Store exit code, duration,
@@ -948,6 +1123,7 @@ Use these endpoints:
 
 - `GET /repos/y9mo/hermesbox`
 - `GET /repos/y9mo/hermesbox/issues`
+- `GET /repos/y9mo/hermesbox/issues/{n}`
 - `GET|POST /repos/y9mo/hermesbox/labels`
 - `POST|DELETE /repos/y9mo/hermesbox/issues/{n}/labels[/{name}]`
 - `GET|POST /repos/y9mo/hermesbox/issues/{n}/comments`
@@ -1005,9 +1181,13 @@ comment only when status changes, the operator changes the profile on retry, or
 publication completes. For a profile conflict, render
 `Implementer: unselected (conflicting model labels)` instead of empty values.
 
-The fine-grained PAT is restricted to `y9mo/hermesbox` with Metadata read,
-Contents read/write, Issues read/write, and Pull requests read/write. It has no
-Administration, Actions, Secrets, Environments, or deletion permission.
+The REST adapter reads only `GITHUB_API_TOKEN` from the controller environment.
+Its fine-grained PAT is restricted to `y9mo/hermesbox` with Metadata read,
+Issues read/write, and Pull requests read/write; it has no Contents write,
+Administration, Actions, Secrets, Environments, or deletion permission. The
+separate Git-user PAT is restricted to the same repository with Metadata read
+and Contents read/write and has no Issues or Pull requests permission. Never use
+one token as a fallback for the other.
 
 ## 17. Pull-request publication
 
@@ -1053,15 +1233,18 @@ Publication is idempotent under these exact rules:
    stored PR and repeats only idempotent reconciliation.
 
 After normal PR creation, reconcile issue label `agent-done` and update the
-marker comment with the PR URL. After draft PR creation, reconcile
-`agent-blocked` and explain that human takeover is required. `completed` means
-PR opened, not merged and not issue closed.
+marker comment with the PR URL. After draft PR data is durable, transition to
+`blocking`; that phase reconciles `agent-blocked`, explains that human takeover
+is required, and finishes terminal `blocked`. `completed` means PR opened, not
+merged and not issue closed.
 
 ## 18. Crash recovery and cancellation
 
 On startup, recover exactly one non-terminal state:
 
-- `claiming`: repeat idempotent label reconciliation.
+- `claiming`: if `last_error` is `implementer_profile_conflict` or
+  `invalid_issue`, transition to `blocking`; otherwise repeat working/profile
+  label reconciliation and transition to `preparing`.
 - `preparing`: inspect and complete missing cache/branch/worktree steps.
 - `verifying`: rerun all checks for the current attempt.
 - `committing`: if HEAD has the exact expected commit subject and the tree is
@@ -1069,6 +1252,8 @@ On startup, recover exactly one non-terminal state:
 - `publishing`: query remote branch and PR, then complete missing idempotent
   publication steps using section 17. A missing worktree is acceptable only for
   an otherwise matching normal-PR publication whose cleanup already occurred.
+- `blocking`: repeat idempotent `agent-blocked` label and marker-comment
+  reconciliation, then transition to terminal `blocked`.
 - `implementing` or `reviewing`: block as `interrupted_agent_process`; do not
   silently spend another model invocation.
 
@@ -1078,9 +1263,24 @@ applies, otherwise `state_corrupt`. Never infer that an agent succeeded from
 working-tree changes, a partial log, an exit code without schema-valid output,
 or prose.
 
-SIGINT or SIGTERM cancels the active process group, persists
-`cancelled_by_operator`, reconciles `agent-blocked`, and exits 1. Operators stop
-an active run with `systemctl stop code-agent.service`.
+Immediately after acquiring the global lock, derive a workflow context with the
+configured `overall_timeout` (exactly `4h30m` in v1). Every GitHub request, Git
+operation, verifier, implementer, reviewer, retry delay, and publication action
+uses that context or a shorter phase/check context. The phase/check deadline
+wins when it expires first. If the overall deadline expires first, terminate
+the active process group, persist `workflow_timeout` while transitioning to
+`blocking`, reconcile `agent-blocked` and the marker comment, attempt the final
+`blocked` transition, then exit 1; never begin another normal workflow phase.
+
+The CLI also derives a signal context for SIGINT and SIGTERM. A signal cancels
+all in-flight HTTP and child work. If a run is durable, create a new independent
+30-second cleanup context solely to persist `cancelled_by_operator` while
+transitioning to `blocking`, reconcile `agent-blocked`, update the marker
+comment, and attempt to finish `blocked`; then exit 1. If no run is yet
+durable, exit 1 without creating one. The same bounded cleanup context is used
+for overall-timeout blocking. Failure to save state remains an operational
+error and must not be hidden by a later GitHub result. Operators stop an active
+run with `systemctl stop code-agent.service`.
 
 Never delete failed run logs or worktrees automatically. For a normal PR,
 remove the linked worktree after PR data, labels, and the marker comment are
@@ -1148,10 +1348,12 @@ run succeeds.
 
 `install-code-agent.yml` performs tasks in this order:
 
-1. Assert `GITHUB_TOKEN` exists in the controller environment.
-2. Install `build-essential`, `ca-certificates`, `curl`, `git`, `npm`, `nodejs`,
-   `python3-venv`, `sudo`, `unzip`, and Terraform from HashiCorp's signed apt
-   repository. Require Terraform 1.15.8 or newer in `doctor`.
+1. Assert distinct non-empty `GITHUB_API_TOKEN` and `GITHUB_GIT_TOKEN` values
+   exist in the Ansible controller environment; fail if they are equal.
+2. Install `bubblewrap`, `build-essential`, `ca-certificates`, `curl`, `git`,
+   `npm`, `nodejs`, `python3-venv`, `sudo`, `unzip`, and Terraform from
+   HashiCorp's signed apt repository. Require Terraform 1.15.8 or newer in
+   `doctor`.
 3. Install Go 1.27.0 from `go1.27.0.linux-amd64.tar.gz`, verifying SHA-256
    `675c26c449cbb18fc24b74650de1eabbae6e16f64326fd85a283fb3b58280685`.
 4. Install Ollama 0.32.14 with the official installer and
@@ -1175,7 +1377,10 @@ run succeeds.
 10. Install the resulting binary mode `0755`, owned root.
 11. Template strict JSON configuration, managed OpenCode configuration,
     sudoers, systemd service, and timer.
-12. Write the GitHub token with `no_log: true`.
+12. With `no_log: true`, write only `GITHUB_API_TOKEN=<API token>` to
+    `controller.env` and write the Git token plus one newline to the fixed
+    Git-user credential file. Never expose either value as a command argument,
+    fact, registered result, diff, or template stored in the source checkout.
 13. Run `systemctl daemon-reload`; leave the timer disabled unless
     `code_agent_enable_timer=true`.
 14. Run `code-agent doctor`; fail the play if any non-authentication check fails.
@@ -1195,26 +1400,36 @@ collections:
 ```
 
 `test-code-agent.yml` checks exact binary versions, systemd unit validity,
-directory modes, sudoers validity, Ollama availability and all four model tags,
-Codex login status, GitHub API access, configuration parsing, the exact allowed
-top-level contents of `/usr/local/src/code-agent`, installed prompt parity, and
-`doctor`.
+directory modes, sudoers validity, Bubblewrap worktree/write and `.git`-hiding
+behavior, both distinct GitHub credential paths without printing either value,
+authenticated Git `ls-remote` as the Git user, Ollama availability and all four
+model tags, Codex login status, GitHub API access, configuration parsing, the
+exact allowed top-level contents of `/usr/local/src/code-agent`, installed
+prompt parity, and `doctor`.
 
 ## 21. Doctor checks
 
 `doctor` runs every check and returns failure if any fail:
 
 - strict config parsing and schema version;
-- executable existence and exact OpenCode/Codex/Ollama versions;
+- executable existence, exact OpenCode/Codex/Ollama versions, and functional
+  `/usr/bin/bwrap`;
 - Go, Terraform, Ansible, Git, and verification executable availability;
 - required users, groups, directory ownership, and modes;
 - writable run/worktree roots under the correct identities;
 - valid sudo transitions to all three subordinate users;
+- `controller.env` contains exactly one non-empty `GITHUB_API_TOKEN` assignment;
+  the Git token file has exact owner/mode/content shape; neither value is
+  printed;
+- the implementer Bubblewrap probe can write the worktree and home but cannot
+  read or replace the linked worktree `.git` file or write another host path;
 - Ollama `/api/tags` contains `glm-5.3-flash:cloud`,
   `deepseek-v4-pro:cloud`, `kimi-k2.7-code:cloud`, and
   `qwen3.5:397b-cloud`;
 - `codex login status` succeeds as reviewer;
 - GitHub `GET /repos/y9mo/hermesbox` succeeds and reports `master`;
+- authenticated `git ls-remote` succeeds as `code-agent-git` through askpass
+  without a token environment value;
 - all five worker-state labels and all four model labels can be listed;
 - no unexplained active branch/worktree/PR collisions; and
 - no more than one local non-terminal run.
@@ -1238,12 +1453,20 @@ private functions or duplicate implementation details.
   duplicate comment prevention, uncertain PR creation, rate limiting, and
   permission failures.
 - Workflow table covers every success and failure transition for attempts 1 and
-  2, including malformed review combinations.
-- Output limiting, timeout, cancellation, SIGTERM/SIGKILL escalation, and
-  sanitized environments are tested with helper subprocesses.
+  2, including malformed review combinations, entry to `blocking`, failed
+  blocked-state reconciliation, and recovery from `blocking`.
+- Output limiting, timeout, cancellation, stdin delivery, descendant
+  termination, SIGTERM/SIGKILL escalation, exact sudo/env construction, the
+  four forbidden credential keys, and sanitized environments are tested with
+  helper subprocesses. A normal helper runs longer than the injected test grace
+  and is not killed; escalation tests use a millisecond-scale injected grace,
+  never a production ten-second sleep.
 - State writes survive a simulated pre-rename failure and reject unknown schema
   versions, partial implementer profile pairs, publication commits absent from
   `commits[]`, and mutation of a persisted publication commit.
+- Initial-run tests crash after each file write, each `fsync`, and the directory
+  rename; validate complete `.init` recovery and fail-closed handling of partial,
+  invalid, or simultaneous temporary/final directories.
 - Controller-log tests assert the exact JSONL event shapes, deterministic
   invocation IDs, prompt/stdin hashing, prompt and environment-value redaction,
   one start/finish pair per child, transition ordering after state persistence,
@@ -1258,10 +1481,12 @@ private functions or duplicate implementation details.
 Use temporary bare remotes and real Git commands to cover clone, fetch,
 worktree creation, branch collision, commit, push, cleanup, dirty recovery,
 base-branch advancement, diff limits, binary rejection, protected paths, and
-disabled hooks. Publication cases cover an absent remote ref, an equal remote
-ref, a different remote ref, publishing an earlier verified commit while the
-worktree contains dirty failed-attempt changes, normal-PR cleanup, and draft-PR
-worktree retention.
+disabled hooks. Candidate-index cases include only-untracked changes, untracked
+binary files, filenames containing newlines, candidate/real tree mismatch, and
+proof that inspection never changes the real index. Publication cases cover an
+absent remote ref, an equal remote ref, a different remote ref, publishing an
+earlier verified commit while the worktree contains dirty failed-attempt
+changes, normal-PR cleanup, and draft-PR worktree retention.
 
 ### Adapter tests
 
@@ -1273,6 +1498,10 @@ worktree retention.
   environment allowlists, log paths, schema validation, and equality of the
   selected profile's CLI model and `CODE_AGENT_IMPLEMENTER_MODEL` for all four
   profiles.
+- Local launcher tests verify exact Bubblewrap argv and mounts. Privileged
+  `test-code-agent.yml` tests—not a fake executable—prove effective UID, groups,
+  filesystem write limits, `.git` hiding, and denial of every credential owned
+  by another identity.
 - Reviewer fixtures include approval, findings, invalid JSON, contradictory
   verdict, empty findings, oversized output, timeout, and nonzero exit.
 
@@ -1284,7 +1513,8 @@ failure then approval; final findings and draft; final verification failure
 publishing only the earlier verified commit; cancellation; crashes immediately
 before and after push and PR creation; and operator retry. Assert final Git
 refs, state, controller/process logs, labels, comment, PR, and required
-worktree presence or absence.
+worktree presence or absence. Exercise overall timeout and SIGTERM separately
+during GitHub, Git, verification, implementer, reviewer, and publication work.
 
 Required pre-merge commands:
 
@@ -1299,9 +1529,11 @@ ansible-playbook --syntax-check -i localhost, ansible/test-code-agent.yml
 
 ## 23. Manual first-live-run procedure
 
-1. Create the fine-grained PAT with the permissions in section 16.
-2. Export `GITHUB_TOKEN` locally and run `install-code-agent.yml` with the timer
-   disabled.
+1. Create the two distinct fine-grained PATs with the separate permissions in
+   section 16.
+2. Export `GITHUB_API_TOKEN` and `GITHUB_GIT_TOKEN` locally and run
+   `install-code-agent.yml` twice with the timer disabled; confirm the second
+   run reports no unintended changes.
 3. SSH to `hermesbox`; authenticate Ollama and pull all four configured model
    tags from section 13.
 4. Authenticate Codex with device auth under the reviewer identity.
@@ -1325,7 +1557,8 @@ The first implementation is complete only when all of these are demonstrated:
 2. `doctor` passes without invoking a model.
 3. No issue produces more than one run directory, branch, marker comment, or PR.
 4. The worker never processes an unlabeled issue or a pull request.
-5. OpenCode cannot read GitHub or Codex credentials and cannot run Git commands.
+5. OpenCode cannot read GitHub or Codex credentials and cannot read, replace,
+   or mutate the worker's Git link, metadata, index, refs, or credentials.
 6. Tests cannot read controller or reviewer credentials.
 7. Codex is a distinct Unix identity, model, prompt, and process from OpenCode.
 8. Approval is accepted only from schema-valid reviewer JSON with zero findings.
@@ -1353,12 +1586,20 @@ The first implementation is complete only when all of these are demonstrated:
 22. A final verification failure publishes only an earlier verified commit as
     a draft and retains the dirty worktree; a completed normal PR removes its
     worktree before the terminal state write.
+23. Crashes during initial run creation produce either one complete recoverable
+    run directory or a visible fail-closed `.init` artifact, never a silently
+    adopted partial run.
+24. The API and Git PATs are distinct, least-privilege, never appear in argv or
+    logs, and are readable only by their owning identities.
+25. Overall timeout and SIGINT/SIGTERM cancel agent and non-agent work, kill
+    descendants, persist the exact blocked reason when a run exists, reconcile
+    GitHub within the bounded cleanup context, and exit 1.
 
 ## 25. Explicitly out of scope
 
 - Multiple repositories or concurrent issues.
 - Webhooks, queues, Temporal, Prefect, Pi, or `gh-aw`.
-- GitHub App authentication; v1 uses one fine-grained PAT.
+- GitHub App authentication; v1 uses two least-privilege fine-grained PATs.
 - Automatic rebasing, merging, deployment, or issue closure.
 - Agent changes to GitHub Actions or binary assets.
 - Running repositories that already contain GitHub Actions.
@@ -1372,9 +1613,12 @@ The first implementation is complete only when all of these are demonstrated:
 
 ## 26. Implementation sequence
 
-1. Add Go module, config parser, domain types, atomic run store, and tests.
-2. Add process supervision and fake-executable tests.
-3. Add Git workspace module and real-repository integration tests.
+1. Add Go module, config parser, individually tagged domain types, atomic
+   initial/transition run store, controller diagnostics, and their tests.
+2. Add the subordinate process module, stdin/output supervision, exact
+   identity/environment construction, Bubblewrap construction, and helper tests.
+3. Add the Git workspace module, candidate-index safety inspection, and real
+   repository integration tests.
 4. Add GitHub REST adapter and `httptest` contract tests.
 5. Add OpenCode and Codex adapters, prompts, schema, and fixtures.
 6. Add the workflow state machine and full fake-driven scenario suite.
@@ -1405,6 +1649,12 @@ The first implementation is complete only when all of these are demonstrated:
   <https://docs.github.com/en/rest/issues/labels>,
   <https://docs.github.com/en/rest/issues/comments>, and
   <https://docs.github.com/en/rest/pulls/pulls>.
+- Bubblewrap mount/PID namespace and sandbox-construction semantics:
+  <https://github.com/containers/bubblewrap/blob/main/README.md> and
+  <https://github.com/containers/bubblewrap/blob/main/bubblewrap.c>.
+- Git credential and askpass behavior:
+  <https://git-scm.com/docs/gitcredentials> and
+  <https://git-scm.com/docs/git#Documentation/git.txt-codeGITASKPASScode>.
 - Codex command flags were verified against the pinned Codex CLI 0.150.1 local
   help for `codex exec`, `codex login`, and structured output.
 - Go 1.27.0 archive checksum:
