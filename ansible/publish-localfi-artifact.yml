@@ -1,0 +1,269 @@
+---
+- name: Publish the LocalFi pilot artifact
+  hosts: hcloud_server_hermesbox
+  become: true
+  gather_facts: true
+
+  vars:
+    localfi_artifact_bundle: ""
+    localfi_artifact_release_id: ""
+    localfi_artifact_root: /srv/localfi-artifact
+    localfi_artifact_site_name: localfi-artifact
+    localfi_artifact_server_name: "_"
+    localfi_artifact_tailscale_address: ""
+    localfi_artifact_bind_address: ""
+    localfi_artifact_tailscale_interface: tailscale0
+    localfi_artifact_keep_releases: 5
+    localfi_artifact_nginx_package: nginx
+    localfi_artifact_nginx_service: nginx
+
+  pre_tasks:
+    - name: Require a deployment bundle
+      ansible.builtin.assert:
+        that:
+          - localfi_artifact_bundle | length > 0
+          - localfi_artifact_release_id is match('^[A-Za-z0-9._-]+$')
+        fail_msg: >-
+          Supply localfi_artifact_bundle and a safe localfi_artifact_release_id.
+
+    - name: Require the pilot artifact files
+      ansible.builtin.stat:
+        path: "{{ localfi_artifact_bundle }}/{{ item }}"
+      loop:
+        - index.html
+        - oh-my-pi-pilot.html
+        - oh-my-pi-pilot.md
+        - manifest.json
+      register: localfi_artifact_files
+      delegate_to: localhost
+      become: false
+
+    - name: Validate the pilot artifact files
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.isreg
+          - item.stat.size | int > 0
+        fail_msg: "Missing or empty artifact file: {{ item.item }}"
+      loop: "{{ localfi_artifact_files.results }}"
+
+  handlers:
+    - name: Validate nginx configuration
+      ansible.builtin.command: nginx -t
+      changed_when: false
+
+    - name: Reload nginx
+      ansible.builtin.systemd:
+        name: "{{ localfi_artifact_nginx_service }}"
+        state: reloaded
+
+  tasks:
+    - name: Install nginx
+      ansible.builtin.apt:
+        name: "{{ localfi_artifact_nginx_package }}"
+        state: present
+        update_cache: true
+
+    - name: Enable and start nginx
+      ansible.builtin.systemd:
+        name: "{{ localfi_artifact_nginx_service }}"
+        enabled: true
+        state: started
+
+    - name: Check that the host firewall is active
+      ansible.builtin.command: ufw status
+      register: localfi_ufw_status
+      changed_when: false
+      failed_when: false
+
+    - name: Refuse a public HTTP deployment without active UFW
+      ansible.builtin.assert:
+        that:
+          - "'Status: active' in localfi_ufw_status.stdout"
+        fail_msg: >-
+          UFW must be active before publishing. The playbook allows HTTP only
+          through the tailscale0 interface and will not expose a public site.
+
+    - name: Discover the host Tailscale IPv4 address
+      ansible.builtin.command: tailscale ip -4
+      register: localfi_tailscale_ip
+      changed_when: false
+      when: localfi_artifact_tailscale_address | length == 0
+
+    - name: Select the nginx bind address
+      ansible.builtin.set_fact:
+        localfi_artifact_bind_address: >-
+          {{ localfi_artifact_tailscale_address
+             if localfi_artifact_tailscale_address | length > 0
+             else localfi_tailscale_ip.stdout | trim }}
+
+    - name: Require a Tailscale bind address
+      ansible.builtin.assert:
+        that:
+          - localfi_artifact_bind_address is match('^[0-9]{1,3}(\.[0-9]{1,3}){3}$')
+        fail_msg: >-
+          Could not discover a Tailscale IPv4 address. Ensure tailscaled is
+          running, or set localfi_artifact_tailscale_address explicitly.
+
+    - name: Create artifact directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: www-data
+        mode: "0755"
+      loop:
+        - "{{ localfi_artifact_root }}"
+        - "{{ localfi_artifact_root }}/releases"
+        - "{{ localfi_artifact_root }}/releases/{{ localfi_artifact_release_id }}"
+
+    - name: Upload artifact bundle
+      ansible.builtin.copy:
+        src: "{{ localfi_artifact_bundle }}/{{ item }}"
+        dest: "{{ localfi_artifact_root }}/releases/{{ localfi_artifact_release_id }}/{{ item }}"
+        owner: root
+        group: www-data
+        mode: "0644"
+      loop:
+        - index.html
+        - oh-my-pi-pilot.html
+        - oh-my-pi-pilot.md
+        - manifest.json
+
+    - name: Install nginx site configuration
+      ansible.builtin.template:
+        src: templates/localfi-artifact-nginx.conf.j2
+        dest: "/etc/nginx/sites-available/{{ localfi_artifact_site_name }}.conf"
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - Validate nginx configuration
+        - Reload nginx
+
+    - name: Enable the LocalFi nginx site
+      ansible.builtin.file:
+        src: "/etc/nginx/sites-available/{{ localfi_artifact_site_name }}.conf"
+        dest: "/etc/nginx/sites-enabled/{{ localfi_artifact_site_name }}.conf"
+        state: link
+      notify:
+        - Validate nginx configuration
+        - Reload nginx
+
+    - name: Disable the Debian default nginx site when present
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify:
+        - Validate nginx configuration
+        - Reload nginx
+
+    - name: Check the uploaded artifact
+      ansible.builtin.stat:
+        path: "{{ localfi_artifact_root }}/releases/{{ localfi_artifact_release_id }}/{{ item }}"
+      loop:
+        - index.html
+        - oh-my-pi-pilot.html
+        - oh-my-pi-pilot.md
+        - manifest.json
+      register: localfi_remote_files
+
+    - name: Require the uploaded artifact files
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.size | int > 0
+        fail_msg: "Remote artifact validation failed for {{ item.item }}"
+      loop: "{{ localfi_remote_files.results }}"
+
+    - name: Activate the release atomically
+      ansible.builtin.file:
+        src: "{{ localfi_artifact_root }}/releases/{{ localfi_artifact_release_id }}"
+        dest: "{{ localfi_artifact_root }}/current"
+        state: link
+        force: true
+      notify:
+        - Validate nginx configuration
+        - Reload nginx
+
+    - name: Allow HTTP through Tailscale only
+      community.general.ufw:
+        rule: allow
+        interface: "{{ localfi_artifact_tailscale_interface }}"
+        direction: in
+        port: "80"
+        proto: tcp
+
+    - name: Remove old releases
+      ansible.builtin.shell: >-
+        set -eu;
+        find {{ localfi_artifact_root | quote }}/releases -mindepth 1 -maxdepth 1 -type d
+        -printf '%T@ %p\n' | sort -nr | tail -n +{{ (localfi_artifact_keep_releases | int) + 1 }}
+        | cut -d' ' -f2- | xargs -r rm -rf
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Flush nginx handlers before health checks
+      ansible.builtin.meta: flush_handlers
+
+    - name: Verify nginx is serving the artifact locally
+      ansible.builtin.uri:
+        url: "http://127.0.0.1/{{ item }}"
+        status_code: 200
+        return_content: true
+      loop:
+        - index.html
+        - oh-my-pi-pilot.html
+        - oh-my-pi-pilot.md
+      register: localfi_http_checks
+
+    - name: Verify the pilot title is served
+      ansible.builtin.assert:
+        that:
+          - "'LocalFi: oh-my-pi setup and first delivery pilot' in (localfi_http_checks.results[1].content | default(''))"
+
+  tags:
+    - publish
+
+- name: Roll back the LocalFi pilot artifact
+  hosts: hcloud_server_hermesbox
+  become: true
+  gather_facts: false
+  vars:
+    localfi_artifact_root: /srv/localfi-artifact
+    localfi_artifact_rollback_release_id: ""
+  tasks:
+    - name: Roll back to the requested release
+      when: localfi_artifact_rollback_release_id | length > 0
+      block:
+        - name: Require a rollback release
+          ansible.builtin.assert:
+            that:
+              - localfi_artifact_rollback_release_id is match('^[A-Za-z0-9._-]+$')
+
+        - name: Verify rollback release exists
+          ansible.builtin.stat:
+            path: "{{ localfi_artifact_root }}/releases/{{ localfi_artifact_rollback_release_id }}"
+          register: localfi_rollback_release
+
+        - name: Require rollback release directory
+          ansible.builtin.assert:
+            that:
+              - localfi_rollback_release.stat.exists
+              - localfi_rollback_release.stat.isdir
+
+        - name: Point current at rollback release
+          ansible.builtin.file:
+            src: "{{ localfi_artifact_root }}/releases/{{ localfi_artifact_rollback_release_id }}"
+            dest: "{{ localfi_artifact_root }}/current"
+            state: link
+            force: true
+
+        - name: Reload nginx after rollback
+          ansible.builtin.systemd:
+            name: nginx
+            state: reloaded
+
+  tags:
+    - rollback

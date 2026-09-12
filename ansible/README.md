@@ -20,6 +20,7 @@ ansible-galaxy collection install hetzner.hcloud community.general
 | 5 | `test-hermes.yml` | Run a one-shot Hermes smoke test. |
 | 6 | `configure-hermes-discord.yml` | Configure Discord and optionally install the gateway service. |
 | 7 | `install-browser-automation.yml` | Optionally install Chromium, Browser Use, and its Hermes MCP registration. |
+| 8 | `publish-localfi-artifact.yml` | Install nginx and publish the LocalFi pilot artifact over Tailscale. |
 
 Run a playbook from the repository root:
 
@@ -33,6 +34,7 @@ ansible-playbook ansible/bootstrap.yml
 - [Tailscale](../docs/tailscale.md)
 - [Hermes and Discord](../docs/hermes.md)
 - [Browser automation](../docs/browser-automation.md)
+- [LocalFi artifact publication](../docs/localfi-artifact.md)
 - [Troubleshooting](../docs/troubleshooting.md)
 
 Secrets are read from the controller environment and written only to protected
