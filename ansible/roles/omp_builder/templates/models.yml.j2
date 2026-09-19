@@ -1,4 +1,30 @@
 providers:
+  deepseek:
+    baseUrl: https://api.deepseek.com
+    api: openai-completions
+    apiKey: DEEPSEEK_API_KEY
+    models:
+      - id: deepseek-flash
+        name: DeepSeek V4.1 Flash
+        reasoning: true
+        thinking:
+          minLevel: low
+          maxLevel: max
+          mode: effort
+        input: [text, image]
+        contextWindow: 1000000
+        maxTokens: 384000
+        compat:
+          supportsDeveloperRole: false
+          supportsReasoningEffort: true
+          maxTokensField: max_tokens
+          reasoningContentField: reasoning_content
+          requiresReasoningContentForToolCalls: true
+          requiresAssistantContentForToolCalls: true
+          supportsToolChoice: false
+          extraBody:
+            thinking:
+              type: enabled
   runinfra:
     baseUrl: https://api.runinfra.ai/v1
     api: openai-completions

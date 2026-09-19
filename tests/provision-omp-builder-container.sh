@@ -28,6 +28,7 @@ for pass in 1 2; do
     -e "omp_builder_owner_public_key_file=$test_dir/key.pub" \
     -e omp_builder_github_token=disposable-container-test \
     -e omp_builder_runinfra_key=disposable-container-test \
+    -e omp_builder_deepseek_key=disposable-container-test \
     | tee "$test_dir/pass-$pass.log"
 done
 if ! grep -Eq 'changed=0 .*failed=0' "$test_dir/pass-2.log"; then
@@ -35,7 +36,7 @@ if ! grep -Eq 'changed=0 .*failed=0' "$test_dir/pass-2.log"; then
   exit 1
 fi
 docker exec --user omp-builder "$container" bash -lc \
-  'test "$GH_TOKEN" = disposable-container-test && test "$RUNINFRA_GATEWAY_KEY" = disposable-container-test'
+  'test "$GH_TOKEN" = disposable-container-test && test "$RUNINFRA_GATEWAY_KEY" = disposable-container-test && test "$DEEPSEEK_API_KEY" = disposable-container-test'
 docker exec --user omp-builder "$container" /var/lib/omp-builder/.local/bin/omp --version
 docker exec --user omp-builder "$container" /var/lib/omp-builder/.local/bin/herdr integration status
 # Dummy key: this checks catalog/config loading only, never live inference.

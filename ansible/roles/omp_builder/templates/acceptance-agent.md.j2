@@ -1,7 +1,7 @@
 ---
-name: acceptance
-description: Execute the project's approved acceptance procedure against an exact reviewed revision.
-model: "@acceptance"
+name: {{ omp_builder_agent_name }}
+description: Execute approved acceptance against an exact reviewed revision ({{ omp_builder_agent_provider }}).
+model: "@{{ omp_builder_agent_role }}"
 blocking: true
 ---
 

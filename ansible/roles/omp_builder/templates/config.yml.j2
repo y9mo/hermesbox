@@ -6,15 +6,19 @@ modelRoles:
   reviewer: {{ omp_builder_reviewer_model | to_json }}
   implementer: {{ omp_builder_implementer_model | to_json }}
   acceptance: {{ omp_builder_acceptance_model | to_json }}
+  implementer_runinfra: {{ omp_builder_runinfra_implementer_model | to_json }}
+  acceptance_runinfra: {{ omp_builder_runinfra_acceptance_model | to_json }}
   task: {{ omp_builder_implementer_model | to_json }}
   smol: {{ omp_builder_implementer_model | to_json }}
 task:
   maxConcurrency: 2
   agentModelOverrides:
     architect: "@architect"
-    implementer: "@implementer"
+    implementer-deepseek: "@implementer"
+    implementer-runinfra: "@implementer_runinfra"
     reviewer: "@reviewer"
-    acceptance: "@acceptance"
+    acceptance-deepseek: "@acceptance"
+    acceptance-runinfra: "@acceptance_runinfra"
 async:
   enabled: false
 browser:

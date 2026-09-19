@@ -210,6 +210,29 @@
     group: "{{ omp_builder_user }}"
     mode: '0600'
 
+- name: Install provider-specific implementation and acceptance agents
+  ansible.builtin.template:
+    src: "{{ item.kind }}-agent.md.j2"
+    dest: "{{ omp_builder_home }}/.omp/agent/agents/{{ item.name }}.md"
+    owner: "{{ omp_builder_user }}"
+    group: "{{ omp_builder_user }}"
+    mode: '0600'
+  vars:
+    omp_builder_agent_name: "{{ item.name }}"
+    omp_builder_agent_provider: "{{ item.provider }}"
+    omp_builder_agent_role: "{{ item.role }}"
+  loop:
+    - {kind: implementer, name: implementer-deepseek, provider: DeepSeek, role: implementer}
+    - {kind: implementer, name: implementer-runinfra, provider: RunInfra, role: implementer_runinfra}
+    - {kind: acceptance, name: acceptance-deepseek, provider: DeepSeek, role: acceptance}
+    - {kind: acceptance, name: acceptance-runinfra, provider: RunInfra, role: acceptance_runinfra}
+
+- name: Remove superseded generic specialist definitions
+  ansible.builtin.file:
+    path: "{{ omp_builder_home }}/.omp/agent/agents/{{ item }}.md"
+    state: absent
+  loop: [implementer, acceptance]
+
 - name: Install scoped coordinator instructions
   ansible.builtin.template:
     src: APPEND_SYSTEM.md.j2
@@ -218,7 +241,7 @@
     group: "{{ omp_builder_user }}"
     mode: '0600'
 
-- name: Provision GitHub and RunInfra credentials from the controller password store
+- name: Provision GitHub, RunInfra and DeepSeek credentials from the controller password store
   ansible.builtin.template:
     src: credentials.env.j2
     dest: "{{ omp_builder_config_dir }}/credentials.env"
@@ -256,4 +279,4 @@
     msg: >-
       Provisioning does not start agents. Complete docs/omp-builder.md: OpenAI
       login, model/tool/image checks, Herdr reconnect, and second-run idempotency.
-      GitHub and RunInfra credentials come from the controller password store.
+      GitHub, RunInfra and DeepSeek credentials come from the controller password store.

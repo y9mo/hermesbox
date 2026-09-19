@@ -4,7 +4,7 @@ This provisions a reusable OMP and Herdr environment on
 `hermesbox.tail85f0d.ts.net`. It installs the agent runtime and development tools;
 it does not start paid agents, clone a project, or approve, implement, review, or
 accept any project change. OMP supplies the native role and collaboration system.
-Account shells and the launcher load protected GitHub and RunInfra credentials.
+Account shells and the launcher load protected GitHub, DeepSeek and RunInfra credentials.
 
 ## Install from this computer
 
@@ -36,15 +36,16 @@ Ansible controller:
 ```bash
 pass show y9mo/github/pat/hermesbox >/dev/null
 pass show y9mo/runinfra/apikey >/dev/null
+pass show y9mo/deepseek/hermes >/dev/null
 ```
 
-The `community.general.passwordstore` lookup fails when either entry is missing.
+The `community.general.passwordstore` lookup fails when any entry is missing.
 The secret task suppresses logs and diffs and writes root-owned
 `/etc/omp-builder/credentials.env`, group `omp-builder`, mode 0640. Reapply after
 changing a password-store entry to rotate the remote credential. The GitHub PAT is
 exported as `GH_TOKEN`; GitHub CLI uses it directly, and Git is configured to use
 `gh auth git-credential` for HTTPS remotes. The password store and GPG material
-remain on the controller. New SSH and Herdr shells load both variables. After
+remain on the controller. New SSH and Herdr shells load all three variables. After
 rotating credentials or applying the role in an existing pane, start a new pane
 or run `set +x; source /etc/omp-builder/credentials.env`.
 
@@ -58,10 +59,10 @@ it is not a deployment test. The role supports Debian Linux on x86_64 and aarch6
 | Path | Purpose |
 |---|---|
 | `/var/lib/omp-builder` | Dedicated account home, private OMP auth/sessions and Herdr state |
-| `/var/lib/omp-builder/.omp/agent/agents` | Four native role definitions shared by project worktrees |
+| `/var/lib/omp-builder/.omp/agent/agents` | Six native agent definitions shared by project worktrees |
 | `/etc/omp-builder/config.yml` | Central model mappings and pilot settings |
-| `/etc/omp-builder/credentials.env` | Root-managed GitHub and RunInfra credentials loaded by the launcher |
-| `/var/lib/omp-builder/.omp/agent/models.yml` | RunInfra provider, environment key reference only |
+| `/etc/omp-builder/credentials.env` | Root-managed GitHub, DeepSeek and RunInfra credentials loaded by the launcher |
+| `/var/lib/omp-builder/.omp/agent/models.yml` | DeepSeek and RunInfra providers, environment key references only |
 | `/var/lib/omp-builder/.omp/agent/APPEND_SYSTEM.md` | Scoped main-coordinator instructions |
 | `/opt/omp-builder/workspace` | Persistent location for project repositories |
 | `/opt/omp-builder/worktrees` | Persistent Herdr worktree location |
@@ -164,10 +165,18 @@ an automatic restart to reload credentials or resume acceptance safely.
 |---|---|---|
 | Main / architect | default / architect | openai-codex/gpt-5.6-sol:low |
 | Reviewer | reviewer | openai-codex/gpt-5.6-sol:low |
-| Implementer | implementer | runinfra/zai-org/GLM-5.3-Flash:max |
-| Acceptance | acceptance | runinfra/zai-org/GLM-5.3-Flash:max |
+| Implementer (default) | implementer-deepseek | deepseek/deepseek-flash:max |
+| Implementer (alternative) | implementer-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
+| Acceptance (default) | acceptance-deepseek | deepseek/deepseek-flash:max |
+| Acceptance (alternative) | acceptance-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
 
-Change the four `omp_builder_*_model` variables and reapply to choose another AI.
+Choose an agent name for each implementation and acceptance assignment. DeepSeek
+is the default; select a RunInfra variant explicitly when it is available. Never
+silently switch providers after a failed task. Both variants share the same
+instructions for their responsibility. Record the selected agent and effective
+provider/model/effort with the run evidence. Repository content read by an agent
+is sent to its selected model provider. Change the corresponding
+`omp_builder_*_model` variable and reapply to alter a mapping.
 `openai-codex/gpt-6-astra:low` is the explicit architect/reviewer alternative.
 Agent definitions use aliases, not embedded model IDs. The launcher exports the
 native `PI_CONFIG_FILES` overlay so settings propagate to task children; model
@@ -207,21 +216,23 @@ Complete and record these host checks; local unit/syntax tests do not establish 
 
 1. Apply twice and confirm the second run changes nothing. Check tool versions
    under `omp-builder` and verify non-interactive SSH PATH.
-2. Provision the GitHub and RunInfra entries and complete `/login` for OpenAI Codex.
+2. Provision the GitHub, DeepSeek and RunInfra entries and complete `/login` for OpenAI Codex.
    From a project root:
 
    ```bash
+   omp-builder-launch models find deepseek-flash --json
    omp-builder-launch models find GLM-5.3-Flash --json
    omp-builder-launch models find gpt-5.6-sol --json
    omp-builder-launch config get modelRoles --json
    ```
 
    Catalog presence is not authentication or inference. Make a small live request
-   with a harmless read/tool call on each selected provider, then dispatch all four
+   with a harmless read/tool call on each selected provider, then dispatch all six
    named specialists on harmless assignments. Check the effective model, low
    effort for architecture/review, max effort for implementation/acceptance,
    streaming, tools, discovery, and unintended fallback. Run a synthetic
-   browser/image smoke as GLM acceptance. Treat unavailable models as BLOCKED.
+   browser/image smoke with each available acceptance agent. Treat unavailable
+   models as BLOCKED for their selected agent; do not silently substitute another.
 3. In Herdr observe a child in Agent Hub, detach/reconnect without stopping it,
    and verify explicit manual resume after a deliberate disposable-session restart.
 4. Rehearse in a disposable worktree: sequential implementation, separate review,
@@ -254,7 +265,7 @@ For a complete disposable Debian install and idempotency check, install
 downloads the pinned tools into an isolated container and deletes that container
 on exit. It uses a dummy API key and makes no paid model requests.
 
-The unit tests exercise missing and quoted GitHub/RunInfra credentials, exact
+The unit tests exercise missing and quoted GitHub/DeepSeek/RunInfra credentials, exact
 argument forwarding, role alias resolution, and the low/max effort mappings. They
 do not make model calls or install host software.
 
@@ -264,5 +275,7 @@ Sources checked against the pinned OMP release: [agent roles/discovery](https://
 [browser Eval API](https://github.com/can1357/oh-my-pi/blob/v18.2.5/docs/tools/browser.md),
 [OMP environment variables](https://github.com/can1357/oh-my-pi/blob/v18.2.5/docs/environment-variables.md),
 [Ansible password-store lookup](https://docs.ansible.com/projects/ansible/latest/collections/community/general/passwordstore_lookup.html),
+[DeepSeek models and pricing](https://api-docs.deepseek.com/quick_start/pricing/),
+[DeepSeek thinking controls](https://api-docs.deepseek.com/guides/thinking_mode/),
 [Herdr remote sessions](https://herdr.dev/docs/persistence-remote/),
 [Herdr integration](https://herdr.dev/docs/integrations/).
