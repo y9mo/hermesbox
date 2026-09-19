@@ -47,8 +47,13 @@ changing a password-store entry to rotate the remote credential. The GitHub PAT 
 exported as `GH_TOKEN`; GitHub CLI uses it directly, and Git is configured to use
 `gh auth git-credential` for HTTPS remotes. The password store and GPG material
 remain on the controller. New SSH and Herdr shells load all four variables. After
-rotating credentials or applying the role in an existing pane, start a new pane
-or run `set +x; source /etc/omp-builder/credentials.env`.
+rotating credentials or adding a provider, an already-running OMP process keeps
+its old environment and may keep its loaded model roles. Exit that process,
+start a new pane in the same project directory, and run
+`omp-builder-launch --resume` to select the saved session. Do not authorize a
+different provider when a specialist unexpectedly resolves to the old model.
+Sourcing `credentials.env` in a shell only affects commands launched afterward;
+it cannot update an OMP process that is already running.
 
 Repeat the same apply to verify idempotency. The role never modifies repositories
 or worktrees placed in its workspace. Ansible can validate syntax without the
@@ -143,7 +148,7 @@ authentication. Close the tunnel with `Ctrl+C` after OMP confirms the login. Do
 not paste the original `auth.openai.com/oauth/authorize` URL into OMP's code
 prompt; manual recovery requires the final callback URL containing `code=`.
 
-The login belongs to this Unix account, not root or your laptop. The two configured
+The login belongs to this Unix account, not root or your laptop. The configured
 password-store entries do not provide OpenAI authentication. Press `Alt+A` for
 OMP's Agent Hub: model, activity, transcript and steering for each child. Herdr
 owns the remote panes; task children need not have separate panes.
