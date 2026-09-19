@@ -34,6 +34,8 @@ if ! grep -Eq 'changed=0 .*failed=0' "$test_dir/pass-2.log"; then
   echo 'Second apply was not idempotent.' >&2
   exit 1
 fi
+docker exec --user omp-builder "$container" bash -lc \
+  'test "$GH_TOKEN" = disposable-container-test && test "$RUNINFRA_GATEWAY_KEY" = disposable-container-test'
 docker exec --user omp-builder "$container" /var/lib/omp-builder/.local/bin/omp --version
 docker exec --user omp-builder "$container" /var/lib/omp-builder/.local/bin/herdr integration status
 # Dummy key: this checks catalog/config loading only, never live inference.

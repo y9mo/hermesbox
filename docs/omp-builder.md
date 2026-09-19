@@ -4,7 +4,7 @@ This provisions a reusable OMP and Herdr environment on
 `hermesbox.tail85f0d.ts.net`. It installs the agent runtime and development tools;
 it does not start paid agents, clone a project, or approve, implement, review, or
 accept any project change. OMP supplies the native role and collaboration system.
-The launcher loads protected GitHub and RunInfra credentials before starting OMP.
+Account shells and the launcher load protected GitHub and RunInfra credentials.
 
 ## Install from this computer
 
@@ -44,7 +44,9 @@ The secret task suppresses logs and diffs and writes root-owned
 changing a password-store entry to rotate the remote credential. The GitHub PAT is
 exported as `GH_TOKEN`; GitHub CLI uses it directly, and Git is configured to use
 `gh auth git-credential` for HTTPS remotes. The password store and GPG material
-remain on the controller.
+remain on the controller. New SSH and Herdr shells load both variables. After
+rotating credentials or applying the role in an existing pane, start a new pane
+or run `set +x; source /etc/omp-builder/credentials.env`.
 
 Repeat the same apply to verify idempotency. The role never modifies repositories
 or worktrees placed in its workspace. Ansible can validate syntax without the
@@ -110,13 +112,20 @@ herdr
 
 The role installs Herdr's official OMP integration as the dedicated account. In a
 remote pane run `herdr integration status`; verify OMP installed and the integration
-is current. Clone or place a project beneath `/opt/omp-builder/workspace`, then
-start from that repository root:
+is current. New panes load `GH_TOKEN`, so GitHub CLI and HTTPS Git use the
+password-store PAT without an interactive username prompt. Clone or place a
+project beneath `/opt/omp-builder/workspace`, then start from that repository root:
 
 ```bash
+gh api repos/<owner>/<repository> --jq .permissions
+git clone https://github.com/<owner>/<repository>.git
 cd /opt/omp-builder/workspace/<project>
 omp-builder-launch
 ```
+
+`gh auth status` proves that the token is valid, not that a fine-grained PAT can
+access a particular repository. An API `404` or Git `403` here means the PAT must
+be granted that repository and the permissions required by its workflow.
 
 Inside OMP use `/login`, choose `openai-codex` and complete OpenAI authentication.
 The login belongs to this Unix account, not root or your laptop. The two configured
