@@ -1,0 +1,255 @@
+---
+- name: Check supported host
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == 'Debian'
+      - ansible_facts.architecture in omp_builder_platforms
+    fail_msg: This role supports Debian Linux on x86_64 and aarch64.
+
+- name: Install build and browser dependencies
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - git
+      - gh
+      - ripgrep
+      - openssh-client
+      - make
+      - build-essential
+      - pkg-config
+      - libsqlite3-dev
+      - python3
+      - xz-utils
+      - unzip
+      - chromium
+      - chromium-sandbox
+      - fonts-liberation
+      - acl
+    state: present
+    install_recommends: false
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create dedicated group
+  ansible.builtin.group:
+    name: "{{ omp_builder_user }}"
+
+- name: Create dedicated account
+  ansible.builtin.user:
+    name: "{{ omp_builder_user }}"
+    group: "{{ omp_builder_user }}"
+    home: "{{ omp_builder_home }}"
+    shell: /bin/bash
+    create_home: true
+
+- name: Create private persistent account directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ omp_builder_user }}"
+    group: "{{ omp_builder_user }}"
+    mode: '0700'
+  loop:
+    - "{{ omp_builder_home }}"
+    - "{{ omp_builder_home }}/.ssh"
+    - "{{ omp_builder_home }}/.local/bin"
+    - "{{ omp_builder_home }}/.omp/agent/agents"
+    - "{{ omp_builder_home }}/.omp/agent/extensions"
+    - "{{ omp_builder_home }}/.config/herdr"
+    - "{{ omp_builder_root }}/workspace"
+    - "{{ omp_builder_root }}/worktrees"
+    - "{{ omp_builder_root }}/evidence"
+
+- name: Authorize Owner public key for the dedicated account
+  ansible.builtin.copy:
+    content: "{{ lookup('file', omp_builder_owner_public_key_file) | trim }}\n"
+    dest: "{{ omp_builder_home }}/.ssh/authorized_keys"
+    owner: "{{ omp_builder_user }}"
+    group: "{{ omp_builder_user }}"
+    mode: '0600'
+
+- name: Create root-owned installation directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - "{{ omp_builder_config_dir }}"
+    - "{{ omp_builder_root }}/downloads"
+    - "{{ omp_builder_root }}/tools/omp-{{ omp_builder_version }}"
+    - "{{ omp_builder_root }}/tools/herdr-{{ omp_builder_herdr_version }}"
+    - "{{ omp_builder_root }}/tools/go-{{ omp_builder_go_version }}"
+    - "{{ omp_builder_root }}/tools/node-{{ omp_builder_node_version }}"
+
+- name: Select platform
+  ansible.builtin.set_fact:
+    omp_builder_platform: "{{ omp_builder_platforms[ansible_facts.architecture] }}"
+
+- name: Install checksum-pinned OMP binary
+  ansible.builtin.get_url:
+    url: "https://github.com/can1357/oh-my-pi/releases/download/v{{ omp_builder_version }}/omp-linux-{{ omp_builder_platform.omp_arch }}"
+    dest: "{{ omp_builder_root }}/tools/omp-{{ omp_builder_version }}/omp"
+    checksum: "sha256:{{ omp_builder_platform.omp_sha }}"
+    timeout: 60
+    mode: '0755'
+    owner: root
+    group: root
+  register: omp_builder_omp_download
+  until: omp_builder_omp_download is succeeded
+  retries: 3
+  delay: 5
+
+- name: Install checksum-pinned Herdr binary
+  ansible.builtin.get_url:
+    url: "https://github.com/herdrdev/herdr/releases/download/v{{ omp_builder_herdr_version }}/herdr-linux-{{ omp_builder_platform.herdr_arch }}"
+    dest: "{{ omp_builder_root }}/tools/herdr-{{ omp_builder_herdr_version }}/herdr"
+    checksum: "sha256:{{ omp_builder_platform.herdr_sha }}"
+    timeout: 60
+    mode: '0755'
+    owner: root
+    group: root
+  register: omp_builder_herdr_download
+  until: omp_builder_herdr_download is succeeded
+  retries: 3
+  delay: 5
+
+- name: Install pinned tool archives
+  ansible.builtin.include_tasks: archive.yml
+  loop:
+    - name: "go-{{ omp_builder_go_version }}"
+      url: "https://go.dev/dl/go{{ omp_builder_go_version }}.linux-{{ omp_builder_platform.go_arch }}.tar.gz"
+      sha: "{{ omp_builder_platform.go_sha }}"
+      executable: bin/go
+      strip: true
+    - name: "node-{{ omp_builder_node_version }}"
+      url: "https://nodejs.org/dist/v{{ omp_builder_node_version }}/node-v{{ omp_builder_node_version }}-linux-{{ omp_builder_platform.node_arch }}.tar.xz"
+      sha: "{{ omp_builder_platform.node_sha }}"
+      executable: bin/node
+      strip: true
+  loop_control:
+    loop_var: omp_builder_archive
+    label: "{{ omp_builder_archive.name }}"
+
+- name: Link dedicated account tools
+  ansible.builtin.file:
+    src: "{{ omp_builder_root }}/tools/{{ item.target }}"
+    dest: "{{ omp_builder_home }}/.local/bin/{{ item.name }}"
+    state: link
+    follow: false
+    owner: "{{ omp_builder_user }}"
+    group: "{{ omp_builder_user }}"
+  loop:
+    - {name: omp, target: "omp-{{ omp_builder_version }}/omp"}
+    - {name: herdr, target: "herdr-{{ omp_builder_herdr_version }}/herdr"}
+    - {name: go, target: "go-{{ omp_builder_go_version }}/bin/go"}
+    - {name: gofmt, target: "go-{{ omp_builder_go_version }}/bin/gofmt"}
+    - {name: node, target: "node-{{ omp_builder_node_version }}/bin/node"}
+    - {name: npm, target: "node-{{ omp_builder_node_version }}/bin/npm"}
+    - {name: npx, target: "node-{{ omp_builder_node_version }}/bin/npx"}
+
+- name: Configure PATH for interactive and non-interactive SSH
+  ansible.builtin.blockinfile:
+    path: "{{ omp_builder_home }}/{{ item }}"
+    insertbefore: BOF
+    create: true
+    owner: "{{ omp_builder_user }}"
+    group: "{{ omp_builder_user }}"
+    mode: '0644'
+    marker: '# {mark} ANSIBLE OMP_BUILDER OMP'
+    block: |
+      export PATH="{{ omp_builder_home }}/.local/bin:/usr/local/bin:$PATH"
+  loop: [.profile, .bashrc]
+
+- name: Inspect GitHub HTTPS credential helper
+  ansible.builtin.command:
+    argv: [git, config, --global, --get-all, credential.https://github.com.helper]
+  become_user: "{{ omp_builder_user }}"
+  environment:
+    HOME: "{{ omp_builder_home }}"
+  register: omp_builder_github_credential_helper
+  changed_when: false
+  failed_when: omp_builder_github_credential_helper.rc not in [0, 1]
+
+- name: Configure GitHub CLI as the GitHub HTTPS credential helper
+  ansible.builtin.command:
+    argv:
+      - git
+      - config
+      - --global
+      - --replace-all
+      - credential.https://github.com.helper
+      - '!gh auth git-credential'
+  become_user: "{{ omp_builder_user }}"
+  environment:
+    HOME: "{{ omp_builder_home }}"
+  when: omp_builder_github_credential_helper.stdout_lines != ['!gh auth git-credential']
+
+- name: Configure native OMP and Herdr
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ omp_builder_user }}"
+    group: "{{ omp_builder_user }}"
+    mode: '0600'
+  loop:
+    - {src: config.yml.j2, dest: "{{ omp_builder_config_dir }}/config.yml"}
+    - {src: models.yml.j2, dest: "{{ omp_builder_home }}/.omp/agent/models.yml"}
+    - {src: herdr.toml.j2, dest: "{{ omp_builder_home }}/.config/herdr/config.toml"}
+
+- name: Install specialist definitions
+  ansible.builtin.copy:
+    src: agents/
+    dest: "{{ omp_builder_home }}/.omp/agent/agents/"
+    owner: "{{ omp_builder_user }}"
+    group: "{{ omp_builder_user }}"
+    mode: '0600'
+
+- name: Install scoped coordinator instructions
+  ansible.builtin.template:
+    src: APPEND_SYSTEM.md.j2
+    dest: "{{ omp_builder_home }}/.omp/agent/APPEND_SYSTEM.md"
+    owner: "{{ omp_builder_user }}"
+    group: "{{ omp_builder_user }}"
+    mode: '0600'
+
+- name: Provision GitHub and RunInfra credentials from the controller password store
+  ansible.builtin.template:
+    src: credentials.env.j2
+    dest: "{{ omp_builder_config_dir }}/credentials.env"
+    owner: root
+    group: "{{ omp_builder_user }}"
+    mode: '0640'
+  no_log: true
+  diff: false
+
+- name: Install credential launcher
+  ansible.builtin.template:
+    src: omp-builder-launch.j2
+    dest: /usr/local/bin/omp-builder-launch
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Check official Herdr OMP integration
+  ansible.builtin.stat:
+    path: "{{ omp_builder_home }}/.omp/agent/extensions/herdr-omp-agent-state.ts"
+  register: omp_builder_herdr_extension
+
+- name: Install official Herdr OMP integration as dedicated account
+  ansible.builtin.command:
+    argv: ["{{ omp_builder_home }}/.local/bin/herdr", integration, install, omp]
+  become_user: "{{ omp_builder_user }}"
+  environment:
+    HOME: "{{ omp_builder_home }}"
+    PATH: "{{ omp_builder_home }}/.local/bin:/usr/local/bin:/usr/bin:/bin"
+  when: omp_builder_herdr_download.changed or not omp_builder_herdr_extension.stat.exists
+  changed_when: true
+
+- name: Report remaining operator verification
+  ansible.builtin.debug:
+    msg: >-
+      Provisioning does not start agents. Complete docs/omp-builder.md: OpenAI
+      login, model/tool/image checks, Herdr reconnect, and second-run idempotency.
+      GitHub and RunInfra credentials come from the controller password store.

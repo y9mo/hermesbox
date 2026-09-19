@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Credential loading only. OMP owns agent dispatch and session state.
+set +x
+set -euo pipefail
+if [[ ! -r {{ (omp_builder_config_dir ~ '/credentials.env') | quote }} ]]; then
+  echo 'OMP Builder credentials are not provisioned; follow docs/omp-builder.md.' >&2
+  exit 78
+fi
+source {{ (omp_builder_config_dir ~ '/credentials.env') | quote }}
+if [[ -z "${GH_TOKEN:-}" ]]; then
+  echo 'GH_TOKEN is empty.' >&2
+  exit 78
+fi
+if [[ -z "${RUNINFRA_GATEWAY_KEY:-}" ]]; then
+  echo 'RUNINFRA_GATEWAY_KEY is empty.' >&2
+  exit 78
+fi
+export PATH={{ (omp_builder_home ~ '/.local/bin') | quote }}:/usr/local/bin:"$PATH"
+export PI_CONFIG_FILES={{ (omp_builder_config_dir ~ '/config.yml') | quote }}
+exec {{ (omp_builder_home ~ '/.local/bin/omp') | quote }} "$@"

@@ -1,0 +1,6 @@
+---
+- name: Install the OMP Builder host setup
+  hosts: omp_builder_hosts
+  become: true
+  roles:
+    - omp_builder
