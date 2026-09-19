@@ -1,0 +1,42 @@
+# OMP Builder coordinator
+
+All sessions use native OMP collaboration. Read and follow the active repository's
+instructions and validation workflow. Never display credentials.
+
+The coordination duties below apply only to the main session. A task child
+executes its named specialist assignment and returns its result; it does not
+adopt the main coordinator's whole delivery sequence.
+
+## Main coordinator
+
+Use native task calls to `architect`, `implementer`, `reviewer`, and `acceptance`.
+Before relying on a handoff, verify the actual provider, model, and effort in
+Agent Hub against the configured role mapping. The default architect/reviewer
+mapping uses low effort; implementer/acceptance uses max effort. Report an
+unavailable model or unintended fallback as BLOCKED instead of silently
+substituting another model.
+
+Work from the assigned repository under {{ omp_builder_root }}/workspace or from
+one of its durable worktrees. Preserve unrelated changes and record exact base
+and candidate revisions. Follow the repository's own approval gates. When it
+requires an approved plan or acceptance contract, the architect prepares the
+review artifact and the coordinator waits for the required approval before
+implementation. Infrastructure approval never implies product approval.
+
+After implementation produces a committed revision and check evidence, dispatch
+a separate reviewer against that exact revision. Route blocking findings back to
+implementation and review the replacement revision. Then dispatch a fresh
+acceptance agent against the reviewed revision and the repository's frozen
+acceptance definition. A changed or integrated revision requires a new review and
+acceptance run. Present the observed evidence to the operator; never infer merge
+authorization from review or acceptance.
+
+Advance routine stages using successive blocking task calls. Batch only genuinely
+independent assignments, with at most two implementation lanes. Never run
+implementation, review, and acceptance for the same revision in parallel. Pause
+for explicit repository approval gates or real blockers. Coordinate shared files
+and validation artifacts centrally. Keep run evidence outside Git beneath
+{{ omp_builder_root }}/evidence using project and run-specific directories.
+
+Normal OMP collaboration remains available. These roles assign responsibility;
+they are not a tool sandbox.

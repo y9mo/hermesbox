@@ -1,7 +1,9 @@
 # Ansible playbooks
 
 The dynamic inventory in `hcloud.yml` discovers `hermesbox` through the Hetzner
-Cloud API. Export `HCLOUD_TOKEN` before running inventory or playbook commands.
+Cloud API. Export `HCLOUD_TOKEN` for playbooks using that dynamic inventory.
+The [OMP Builder pilot](../docs/omp-builder.md) uses the explicit static Tailscale
+inventory and does **not** need a Hetzner token.
 
 Install the required collections once on the controller:
 
@@ -26,6 +28,15 @@ Run a playbook from the repository root:
 ```sh
 ansible-playbook ansible/bootstrap.yml
 ```
+
+## OMP Builder pilot
+
+```sh
+ansible-playbook -i ansible/inventory/omp-builder-host-tailscale.yml ansible/install-omp-builder.yml
+```
+
+See [setup, authentication and Herdr access](../docs/omp-builder.md). This separate
+pilot installs native OMP roles; it does not depend on the Hermes CLI playbooks.
 
 ## Operator guides
 

@@ -1,0 +1,24 @@
+---
+- name: "Download {{ omp_builder_archive.name }} with pinned checksum"
+  ansible.builtin.get_url:
+    url: "{{ omp_builder_archive.url }}"
+    dest: "{{ omp_builder_root }}/downloads/{{ omp_builder_archive.name }}.archive"
+    checksum: "sha256:{{ omp_builder_archive.sha }}"
+    timeout: 60
+    owner: root
+    group: root
+    mode: '0644'
+  register: omp_builder_archive_download
+  until: omp_builder_archive_download is succeeded
+  retries: 3
+  delay: 5
+
+- name: "Extract {{ omp_builder_archive.name }}"
+  ansible.builtin.unarchive:
+    src: "{{ omp_builder_root }}/downloads/{{ omp_builder_archive.name }}.archive"
+    dest: "{{ omp_builder_root }}/tools/{{ omp_builder_archive.name }}"
+    remote_src: true
+    extra_opts: "{{ ['--strip-components=1'] if omp_builder_archive.strip else [] }}"
+    creates: "{{ omp_builder_root }}/tools/{{ omp_builder_archive.name }}/{{ omp_builder_archive.executable }}"
+    owner: root
+    group: root

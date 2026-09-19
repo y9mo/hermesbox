@@ -1,0 +1,10 @@
+---
+# Existing host over Tailscale: no Hetzner API or HCLOUD_TOKEN required.
+all:
+  children:
+    omp_builder_hosts:
+      hosts:
+        hermesbox:
+          ansible_host: hermesbox.tail85f0d.ts.net
+          ansible_user: root
+          ansible_ssh_private_key_file: ~/.ssh/hetznercloud
