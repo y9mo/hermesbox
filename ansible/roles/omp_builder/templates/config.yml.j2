@@ -7,6 +7,7 @@ modelRoles:
   implementer: {{ omp_builder_implementer_model | to_json }}
   acceptance: {{ omp_builder_acceptance_model | to_json }}
   implementer_runinfra: {{ omp_builder_runinfra_implementer_model | to_json }}
+  implementer_mistral: {{ omp_builder_mistral_implementer_model | to_json }}
   acceptance_runinfra: {{ omp_builder_runinfra_acceptance_model | to_json }}
   task: {{ omp_builder_implementer_model | to_json }}
   smol: {{ omp_builder_implementer_model | to_json }}
@@ -16,6 +17,7 @@ task:
     architect: "@architect"
     implementer-deepseek: "@implementer"
     implementer-runinfra: "@implementer_runinfra"
+    implementer-mistral: "@implementer_mistral"
     reviewer: "@reviewer"
     acceptance-deepseek: "@acceptance"
     acceptance-runinfra: "@acceptance_runinfra"

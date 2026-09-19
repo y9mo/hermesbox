@@ -4,7 +4,7 @@ This provisions a reusable OMP and Herdr environment on
 `hermesbox.tail85f0d.ts.net`. It installs the agent runtime and development tools;
 it does not start paid agents, clone a project, or approve, implement, review, or
 accept any project change. OMP supplies the native role and collaboration system.
-Account shells and the launcher load protected GitHub, DeepSeek and RunInfra credentials.
+Account shells and the launcher load protected GitHub, DeepSeek, RunInfra and Mistral credentials.
 
 ## Install from this computer
 
@@ -37,6 +37,7 @@ Ansible controller:
 pass show y9mo/github/pat/hermesbox >/dev/null
 pass show y9mo/runinfra/apikey >/dev/null
 pass show y9mo/deepseek/hermes >/dev/null
+pass show y9mo/mistral/hermes >/dev/null
 ```
 
 The `community.general.passwordstore` lookup fails when any entry is missing.
@@ -45,7 +46,7 @@ The secret task suppresses logs and diffs and writes root-owned
 changing a password-store entry to rotate the remote credential. The GitHub PAT is
 exported as `GH_TOKEN`; GitHub CLI uses it directly, and Git is configured to use
 `gh auth git-credential` for HTTPS remotes. The password store and GPG material
-remain on the controller. New SSH and Herdr shells load all three variables. After
+remain on the controller. New SSH and Herdr shells load all four variables. After
 rotating credentials or applying the role in an existing pane, start a new pane
 or run `set +x; source /etc/omp-builder/credentials.env`.
 
@@ -61,7 +62,7 @@ it is not a deployment test. The role supports Debian Linux on x86_64 and aarch6
 | `/var/lib/omp-builder` | Dedicated account home, private OMP auth/sessions and Herdr state |
 | `/var/lib/omp-builder/.omp/agent/agents` | Six native agent definitions shared by project worktrees |
 | `/etc/omp-builder/config.yml` | Central model mappings and pilot settings |
-| `/etc/omp-builder/credentials.env` | Root-managed GitHub, DeepSeek and RunInfra credentials loaded by the launcher |
+| `/etc/omp-builder/credentials.env` | Root-managed GitHub, DeepSeek, RunInfra and Mistral credentials loaded by the launcher |
 | `/var/lib/omp-builder/.omp/agent/models.yml` | DeepSeek and RunInfra providers, environment key references only |
 | `/var/lib/omp-builder/.omp/agent/APPEND_SYSTEM.md` | Scoped main-coordinator instructions |
 | `/opt/omp-builder/workspace` | Persistent location for project repositories |
@@ -167,12 +168,13 @@ an automatic restart to reload credentials or resume acceptance safely.
 | Reviewer | reviewer | openai-codex/gpt-5.6-sol:low |
 | Implementer (default) | implementer-deepseek | deepseek/deepseek-flash:max |
 | Implementer (alternative) | implementer-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
+| Implementer (alternative) | implementer-mistral | mistral/zai-glm-5-3:medium |
 | Acceptance (default) | acceptance-deepseek | deepseek/deepseek-flash:max |
 | Acceptance (alternative) | acceptance-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
 
 Choose an agent name for each implementation and acceptance assignment. DeepSeek
-is the default; select a RunInfra variant explicitly when it is available. Never
-silently switch providers after a failed task. Both variants share the same
+is the default; select a RunInfra or Mistral variant explicitly when it is available. Never
+silently switch providers after a failed task. All variants share the same
 instructions for their responsibility. Record the selected agent and effective
 provider/model/effort with the run evidence. Repository content read by an agent
 is sent to its selected model provider. Change the corresponding
@@ -216,20 +218,22 @@ Complete and record these host checks; local unit/syntax tests do not establish 
 
 1. Apply twice and confirm the second run changes nothing. Check tool versions
    under `omp-builder` and verify non-interactive SSH PATH.
-2. Provision the GitHub, DeepSeek and RunInfra entries and complete `/login` for OpenAI Codex.
+2. Provision the GitHub, DeepSeek, RunInfra and Mistral entries and complete `/login` for OpenAI Codex.
    From a project root:
 
    ```bash
    omp-builder-launch models find deepseek-flash --json
    omp-builder-launch models find GLM-5.3-Flash --json
+   omp-builder-launch models find zai-glm-5-3 --json
    omp-builder-launch models find gpt-5.6-sol --json
    omp-builder-launch config get modelRoles --json
    ```
 
    Catalog presence is not authentication or inference. Make a small live request
-   with a harmless read/tool call on each selected provider, then dispatch all six
+   with a harmless read/tool call on each selected provider, then dispatch all seven
    named specialists on harmless assignments. Check the effective model, low
-   effort for architecture/review, max effort for implementation/acceptance,
+   effort for architecture/review, max effort for DeepSeek/RunInfra implementation
+   and acceptance, and medium effort for Mistral implementation,
    streaming, tools, discovery, and unintended fallback. Run a synthetic
    browser/image smoke with each available acceptance agent. Treat unavailable
    models as BLOCKED for their selected agent; do not silently substitute another.
@@ -265,8 +269,8 @@ For a complete disposable Debian install and idempotency check, install
 downloads the pinned tools into an isolated container and deletes that container
 on exit. It uses a dummy API key and makes no paid model requests.
 
-The unit tests exercise missing and quoted GitHub/DeepSeek/RunInfra credentials, exact
-argument forwarding, role alias resolution, and the low/max effort mappings. They
+The unit tests exercise missing and quoted GitHub/DeepSeek/RunInfra/Mistral credentials, exact
+argument forwarding, role alias resolution, and the low/medium/max effort mappings. They
 do not make model calls or install host software.
 
 Sources checked against the pinned OMP release: [agent roles/discovery](https://github.com/can1357/oh-my-pi/blob/v18.2.5/docs/task-agent-discovery.md),
@@ -277,5 +281,7 @@ Sources checked against the pinned OMP release: [agent roles/discovery](https://
 [Ansible password-store lookup](https://docs.ansible.com/projects/ansible/latest/collections/community/general/passwordstore_lookup.html),
 [DeepSeek models and pricing](https://api-docs.deepseek.com/quick_start/pricing/),
 [DeepSeek thinking controls](https://api-docs.deepseek.com/guides/thinking_mode/),
+[Mistral GLM 5.3 model](https://docs.mistral.ai/models/zai-glm-5-3),
+[Mistral chat completions API](https://docs.mistral.ai/api/),
 [Herdr remote sessions](https://herdr.dev/docs/persistence-remote/),
 [Herdr integration](https://herdr.dev/docs/integrations/).

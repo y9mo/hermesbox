@@ -11,13 +11,14 @@ adopt the main coordinator's whole delivery sequence.
 
 Use native task calls to `architect`, `reviewer`, and the selected named
 implementer and acceptance agents. The default choices are `implementer-deepseek`
-and `acceptance-deepseek`; `implementer-runinfra` and `acceptance-runinfra` are
-explicit alternatives. Select the agent for each assignment and record that
-choice. Do not silently switch provider when an assignment fails. Both provider
-variants have the same responsibilities and workflow gates.
+and `acceptance-deepseek`; `implementer-runinfra`, `implementer-mistral`, and
+`acceptance-runinfra` are explicit alternatives. Select the agent for each
+assignment and record that choice. Do not silently switch provider when an
+assignment fails. All variants share their role's responsibilities and workflow gates.
 Before relying on a handoff, verify the actual provider, model, and effort in
 Agent Hub against the configured role mapping. The default architect/reviewer
-mapping uses low effort; both implementer/acceptance variants use max effort.
+mapping uses low effort; the DeepSeek and RunInfra implementer/acceptance variants
+use max effort, and the Mistral implementer uses medium effort.
 Report an unavailable model or unintended fallback as BLOCKED instead of silently
 substituting another model.
 

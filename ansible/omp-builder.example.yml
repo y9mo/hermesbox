@@ -9,3 +9,4 @@ omp_builder_implementer_model: deepseek/deepseek-flash:max
 omp_builder_acceptance_model: deepseek/deepseek-flash:max
 omp_builder_runinfra_implementer_model: runinfra/zai-org/GLM-5.3-Flash:max
 omp_builder_runinfra_acceptance_model: runinfra/zai-org/GLM-5.3-Flash:max
+omp_builder_mistral_implementer_model: mistral/zai-glm-5-3:medium

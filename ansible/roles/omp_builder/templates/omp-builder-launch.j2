@@ -19,6 +19,10 @@ if [[ -z "${DEEPSEEK_API_KEY:-}" ]]; then
   echo 'DEEPSEEK_API_KEY is empty.' >&2
   exit 78
 fi
+if [[ -z "${MISTRAL_API_KEY:-}" ]]; then
+  echo 'MISTRAL_API_KEY is empty.' >&2
+  exit 78
+fi
 export PATH={{ (omp_builder_home ~ '/.local/bin') | quote }}:/usr/local/bin:"$PATH"
 export PI_CONFIG_FILES={{ (omp_builder_config_dir ~ '/config.yml') | quote }}
 exec {{ (omp_builder_home ~ '/.local/bin/omp') | quote }} "$@"

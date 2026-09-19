@@ -39,3 +39,17 @@ providers:
         compat:
           supportsReasoningEffort: true
           maxTokensField: max_tokens
+  mistral:
+    baseUrl: https://api.mistral.ai/v1
+    api: openai-completions
+    apiKey: MISTRAL_API_KEY
+    models:
+      - id: zai-glm-5-3
+        name: GLM 5.3 (Mistral)
+        reasoning: true
+        input: [text]
+        contextWindow: 1000000
+        maxTokens: 128000
+        compat:
+          supportsReasoningEffort: true
+          maxTokensField: max_tokens
