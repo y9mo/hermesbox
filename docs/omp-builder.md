@@ -48,10 +48,11 @@ exported as `GH_TOKEN`; GitHub CLI uses it directly, and Git is configured to us
 `gh auth git-credential` for HTTPS remotes. The password store and GPG material
 remain on the controller. New SSH and Herdr shells load all four variables. After
 rotating credentials or adding a provider, an already-running OMP process keeps
-its old environment and may keep its loaded model roles. Exit that process,
-start a new pane in the same project directory, and run
+its old environment and may keep its loaded model roles. Use `/exit` in OMP,
+return to a shell in the same project directory, and run
 `omp-builder-launch --resume` to select the saved session. Do not authorize a
 different provider when a specialist unexpectedly resolves to the old model.
+Reattaching another Herdr tab to the same pane does not start a new OMP process.
 Sourcing `credentials.env` in a shell only affects commands launched afterward;
 it cannot update an OMP process that is already running.
 
