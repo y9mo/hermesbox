@@ -127,7 +127,20 @@ omp-builder-launch
 access a particular repository. An API `404` or Git `403` here means the PAT must
 be granted that repository and the permissions required by its workflow.
 
-Inside OMP use `/login`, choose `openai-codex` and complete OpenAI authentication.
+OMP runs on Hermesbox, so its browser callback on `localhost:1455` is not directly
+reachable from the browser on your computer. Before logging in, open a separate
+terminal on your computer and keep this SSH tunnel running:
+
+```bash
+ssh -N -L 1455:localhost:1455 hermesbox-builder
+```
+
+Inside OMP use `/login`, choose `openai-codex`, then open
+`http://localhost:1455/launch` in the browser on your computer and complete OpenAI
+authentication. Close the tunnel with `Ctrl+C` after OMP confirms the login. Do
+not paste the original `auth.openai.com/oauth/authorize` URL into OMP's code
+prompt; manual recovery requires the final callback URL containing `code=`.
+
 The login belongs to this Unix account, not root or your laptop. The two configured
 password-store entries do not provide OpenAI authentication. Press `Alt+A` for
 OMP's Agent Hub: model, activity, transcript and steering for each child. Herdr
