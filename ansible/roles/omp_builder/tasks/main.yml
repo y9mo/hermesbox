@@ -149,7 +149,7 @@
     - {name: npm, target: "node-{{ omp_builder_node_version }}/bin/npm"}
     - {name: npx, target: "node-{{ omp_builder_node_version }}/bin/npx"}
 
-- name: Configure PATH for interactive and non-interactive SSH
+- name: Configure PATH and credentials for account shells
   ansible.builtin.blockinfile:
     path: "{{ omp_builder_home }}/{{ item }}"
     insertbefore: BOF
@@ -160,6 +160,10 @@
     marker: '# {mark} ANSIBLE OMP_BUILDER OMP'
     block: |
       export PATH="{{ omp_builder_home }}/.local/bin:/usr/local/bin:$PATH"
+      if [ -r "{{ omp_builder_config_dir }}/credentials.env" ]; then
+        set +x
+        . "{{ omp_builder_config_dir }}/credentials.env"
+      fi
   loop: [.profile, .bashrc]
 
 - name: Inspect GitHub HTTPS credential helper
