@@ -126,8 +126,11 @@ class Helpers(unittest.TestCase):
         self.assertEqual(config["task"]["maxConcurrency"], 2)
         for role in ("default", "plan"):
             self.assertEqual(config["modelRoles"][role], "deepseek/deepseek-flash:max")
-        self.assertTrue(config["modelRoles"]["architect"].endswith(":low"))
-        self.assertTrue(config["modelRoles"]["reviewer"].endswith(":low"))
+        for role in ("architect", "reviewer"):
+            self.assertEqual(config["modelRoles"][role],
+                             "openai-codex/gpt-5.6-sol:medium")
+        self.assertEqual(config["modelRoles"]["designer"],
+                         "openai-codex/gpt-6-astra:low")
         for role in ("implementer", "acceptance", "task", "smol"):
             self.assertEqual(config["modelRoles"][role], "deepseek/deepseek-flash:max")
         for role in ("implementer_runinfra", "acceptance_runinfra"):

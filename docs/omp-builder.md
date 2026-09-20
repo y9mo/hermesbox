@@ -171,8 +171,9 @@ an automatic restart to reload credentials or resume acceptance safely.
 | Role | Alias | Default model |
 |---|---|---|
 | Main coordinator | default / plan | deepseek/deepseek-flash:max |
-| Architect | architect | openai-codex/gpt-5.6-sol:low |
-| Reviewer | reviewer | openai-codex/gpt-5.6-sol:low |
+| Architect | architect | openai-codex/gpt-5.6-sol:medium |
+| Reviewer | reviewer | openai-codex/gpt-5.6-sol:medium |
+| Designer | designer | openai-codex/gpt-6-astra:low |
 | Implementer (default) | implementer-deepseek | deepseek/deepseek-flash:max |
 | Implementer (alternative) | implementer-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
 | Implementer (alternative) | implementer-mistral | mistral/zai-glm-5-3:medium |
@@ -191,7 +192,6 @@ instructions for their responsibility. Record the selected agent and effective
 provider/model/effort with the run evidence. Repository content read by an agent
 is sent to its selected model provider. Change the corresponding
 `omp_builder_*_model` variable and reapply to alter a mapping.
-`openai-codex/gpt-6-astra:low` is the explicit architect/reviewer alternative.
 Agent definitions use aliases, not embedded model IDs. The launcher exports the
 native `PI_CONFIG_FILES` overlay so settings propagate to task children; model
 mappings and `task.agentModelOverrides` point to the same aliases. There is no
@@ -242,11 +242,11 @@ Complete and record these host checks; local unit/syntax tests do not establish 
    ```
 
    Catalog presence is not authentication or inference. Make a small live request
-   with a harmless read/tool call on each selected provider, then dispatch all seven
-   named specialists on harmless assignments. Check the effective model, low
-   effort for architecture/review, max effort for the main coordinator and
-   DeepSeek/RunInfra implementation and acceptance, and medium effort for Mistral
-   implementation,
+   with a harmless read/tool call on each selected provider, then dispatch all eight
+   named specialists on harmless assignments. Check the effective model, medium
+   effort for architecture/review, low effort for design, max effort for the main
+   coordinator and DeepSeek/RunInfra implementation and acceptance, and medium
+   effort for Mistral implementation,
    streaming, tools, discovery, and unintended fallback. Run a synthetic
    browser/image smoke with each available acceptance agent. Treat unavailable
    models as BLOCKED for their selected agent; do not silently substitute another.
