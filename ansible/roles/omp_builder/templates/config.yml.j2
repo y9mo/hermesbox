@@ -1,7 +1,7 @@
 # Managed pilot overlay; inherited by native task children through PI_CONFIG_FILES.
 modelRoles:
-  default: {{ omp_builder_architect_model | to_json }}
-  plan: {{ omp_builder_architect_model | to_json }}
+  default: {{ omp_builder_coordinator_model | to_json }}
+  plan: {{ omp_builder_coordinator_model | to_json }}
   architect: {{ omp_builder_architect_model | to_json }}
   reviewer: {{ omp_builder_reviewer_model | to_json }}
   implementer: {{ omp_builder_implementer_model | to_json }}

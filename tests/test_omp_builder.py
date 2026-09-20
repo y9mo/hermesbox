@@ -124,6 +124,8 @@ class Helpers(unittest.TestCase):
                          agents["implementer-mistral"].split("---", 2)[2])
         self.assertFalse(config["async"]["enabled"])
         self.assertEqual(config["task"]["maxConcurrency"], 2)
+        for role in ("default", "plan"):
+            self.assertEqual(config["modelRoles"][role], "deepseek/deepseek-flash:max")
         self.assertTrue(config["modelRoles"]["architect"].endswith(":low"))
         self.assertTrue(config["modelRoles"]["reviewer"].endswith(":low"))
         for role in ("implementer", "acceptance", "task", "smol"):

@@ -170,13 +170,19 @@ an automatic restart to reload credentials or resume acceptance safely.
 
 | Role | Alias | Default model |
 |---|---|---|
-| Main / architect | default / architect | openai-codex/gpt-5.6-sol:low |
+| Main coordinator | default / plan | deepseek/deepseek-flash:max |
+| Architect | architect | openai-codex/gpt-5.6-sol:low |
 | Reviewer | reviewer | openai-codex/gpt-5.6-sol:low |
 | Implementer (default) | implementer-deepseek | deepseek/deepseek-flash:max |
 | Implementer (alternative) | implementer-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
 | Implementer (alternative) | implementer-mistral | mistral/zai-glm-5-3:medium |
 | Acceptance (default) | acceptance-deepseek | deepseek/deepseek-flash:max |
 | Acceptance (alternative) | acceptance-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
+
+The coordinator's `default` and `plan` roles apply to new model selections. A
+resumed session can retain its previously selected active model. In that session,
+use `/model` to select DeepSeek Flash at max effort, then verify the status line
+before assigning more work.
 
 Choose an agent name for each implementation and acceptance assignment. DeepSeek
 is the default; select a RunInfra or Mistral variant explicitly when it is available. Never
@@ -238,8 +244,9 @@ Complete and record these host checks; local unit/syntax tests do not establish 
    Catalog presence is not authentication or inference. Make a small live request
    with a harmless read/tool call on each selected provider, then dispatch all seven
    named specialists on harmless assignments. Check the effective model, low
-   effort for architecture/review, max effort for DeepSeek/RunInfra implementation
-   and acceptance, and medium effort for Mistral implementation,
+   effort for architecture/review, max effort for the main coordinator and
+   DeepSeek/RunInfra implementation and acceptance, and medium effort for Mistral
+   implementation,
    streaming, tools, discovery, and unintended fallback. Run a synthetic
    browser/image smoke with each available acceptance agent. Treat unavailable
    models as BLOCKED for their selected agent; do not silently substitute another.
