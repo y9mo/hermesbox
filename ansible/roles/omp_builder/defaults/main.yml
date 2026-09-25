@@ -21,23 +21,23 @@ omp_builder_mistral_key: >-
   {{ lookup('community.general.passwordstore',
             omp_builder_mistral_key_passwordstore_entry, missing='error') }}
 omp_builder_coordinator_model: deepseek/deepseek-flash:max
-omp_builder_architect_model: openai-codex/gpt-5.6-sol:medium
-omp_builder_reviewer_model: openai-codex/gpt-5.6-sol:medium
+omp_builder_architect_model: openai-codex/gpt-6-sol:medium
+omp_builder_reviewer_model: openai-codex/gpt-6-sol:medium
 omp_builder_designer_model: openai-codex/gpt-6-astra:low
-omp_builder_implementer_model: deepseek/deepseek-flash:max
+omp_builder_implementer_model: openai-codex/gpt-6-luna:low
 omp_builder_acceptance_model: deepseek/deepseek-flash:max
 omp_builder_runinfra_implementer_model: runinfra/zai-org/GLM-5.3-Flash:max
 omp_builder_runinfra_acceptance_model: runinfra/zai-org/GLM-5.3-Flash:max
 omp_builder_mistral_implementer_model: mistral/zai-glm-5-3:medium
 # Upgrade version and checksums together, then deliberately restart running sessions.
-omp_builder_version: 18.2.5
+omp_builder_version: 18.2.11
 omp_builder_herdr_version: 0.9.1
 omp_builder_go_version: 1.26.8
 omp_builder_node_version: 22.23.2
 omp_builder_platforms:
   x86_64:
     omp_arch: x64
-    omp_sha: 19a18856c308885768da69b6d3a995a8ed0a9135a887d869df26023772dee839
+    omp_sha: 97cf39557bf3d98327dd4c9814380b7e6bcb76e41169edd9b0ff30424c733a2a
     herdr_arch: x86_64
     herdr_sha: 2a02fed16beb651ef006e1d43f048f652ca4dc58ad053cd2d44450563d5c54b7
     go_arch: amd64
@@ -46,7 +46,7 @@ omp_builder_platforms:
     node_sha: d60acfe00a2932254bb0ad20e01b0d74397a0875595de719654b214f4b03f307
   aarch64:
     omp_arch: arm64
-    omp_sha: cda1c2f9e03093c170fd770e698c680f9cad0dddc23c88d4209b87764653ecc4
+    omp_sha: c115f95a0a0081d3724a3c878231fb8c3b2fdb25ad5ad6c3b30d152a82b3939e
     herdr_arch: aarch64
     herdr_sha: f4ccf4de745f2cb9a39a983e9ba3703dad50ec2a58dea83026ceab721bbd8d9e
     go_arch: arm64

@@ -98,7 +98,7 @@ class Helpers(unittest.TestCase):
         self.values.update(defaults)
         config = yaml.safe_load(self.render("config.yml").read_text())
         agents = {file.stem: file.read_text() for file in (ROLE / "files/agents").glob("*.md")}
-        variants = (("implementer", "deepseek", "implementer"),
+        variants = (("implementer", "openai", "implementer"),
                     ("implementer", "runinfra", "implementer_runinfra"),
                     ("implementer", "mistral", "implementer_mistral"),
                     ("acceptance", "deepseek", "acceptance"),
@@ -116,11 +116,10 @@ class Helpers(unittest.TestCase):
             self.assertIn(alias, config["modelRoles"])
             self.assertEqual(config["task"]["agentModelOverrides"][frontmatter["name"]], "@" + alias)
             self.assertTrue(frontmatter["blocking"])
-        for kind in ("implementer", "acceptance"):
-            deepseek = agents[f"{kind}-deepseek"].split("---", 2)[2]
-            runinfra = agents[f"{kind}-runinfra"].split("---", 2)[2]
-            self.assertEqual(deepseek, runinfra)
-        self.assertEqual(agents["implementer-deepseek"].split("---", 2)[2],
+        acceptance_deepseek = agents["acceptance-deepseek"].split("---", 2)[2]
+        acceptance_runinfra = agents["acceptance-runinfra"].split("---", 2)[2]
+        self.assertEqual(acceptance_deepseek, acceptance_runinfra)
+        self.assertEqual(agents["implementer-openai"].split("---", 2)[2],
                          agents["implementer-mistral"].split("---", 2)[2])
         self.assertFalse(config["async"]["enabled"])
         self.assertEqual(config["task"]["maxConcurrency"], 2)
@@ -128,11 +127,13 @@ class Helpers(unittest.TestCase):
             self.assertEqual(config["modelRoles"][role], "deepseek/deepseek-flash:max")
         for role in ("architect", "reviewer"):
             self.assertEqual(config["modelRoles"][role],
-                             "openai-codex/gpt-5.6-sol:medium")
+                             "openai-codex/gpt-6-sol:medium")
         self.assertEqual(config["modelRoles"]["designer"],
                          "openai-codex/gpt-6-astra:low")
-        for role in ("implementer", "acceptance", "task", "smol"):
-            self.assertEqual(config["modelRoles"][role], "deepseek/deepseek-flash:max")
+        self.assertEqual(config["modelRoles"]["implementer"], "openai-codex/gpt-6-luna:low")
+        self.assertEqual(config["modelRoles"]["acceptance"], "deepseek/deepseek-flash:max")
+        for role in ("task", "smol"):
+            self.assertEqual(config["modelRoles"][role], "openai-codex/gpt-6-luna:low")
         for role in ("implementer_runinfra", "acceptance_runinfra"):
             self.assertEqual(config["modelRoles"][role], "runinfra/zai-org/GLM-5.3-Flash:max")
         self.assertEqual(config["modelRoles"]["implementer_mistral"],

@@ -222,7 +222,7 @@
     omp_builder_agent_provider: "{{ item.provider }}"
     omp_builder_agent_role: "{{ item.role }}"
   loop:
-    - {kind: implementer, name: implementer-deepseek, provider: DeepSeek, role: implementer}
+    - {kind: implementer, name: implementer-openai, provider: OpenAI Codex, role: implementer}
     - {kind: implementer, name: implementer-runinfra, provider: RunInfra, role: implementer_runinfra}
     - {kind: implementer, name: implementer-mistral, provider: Mistral, role: implementer_mistral}
     - {kind: acceptance, name: acceptance-deepseek, provider: DeepSeek, role: acceptance}
