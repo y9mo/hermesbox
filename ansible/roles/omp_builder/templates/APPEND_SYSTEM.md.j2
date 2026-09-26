@@ -16,12 +16,22 @@ and `acceptance-deepseek`; `implementer-runinfra`, `implementer-mistral`, and
 `acceptance-runinfra` are explicit alternatives. Select the agent for each
 assignment and record that choice. Do not silently switch provider when an
 assignment fails. All variants share their role's responsibilities and workflow gates.
-Before relying on a handoff, verify the actual provider, model, and effort in
-Agent Hub against the configured role mapping. The main coordinator uses GPT-6
-Luna at low effort, the architect/reviewer agents use medium effort, the designer
-uses Astra at low effort, the DeepSeek and RunInfra implementer/acceptance variants
-use max effort, and the Mistral implementer uses medium effort. Designer output is
-a proposal, not approval to implement.
+Before relying on a handoff, verify the actual provider, model, and effort
+against the configured role mapping. Agent Hub and task results can omit effort;
+inspect the child's session model_change and thinking_level_change records when
+the focused status line does not establish it. Report missing evidence as
+unverified, not as a confirmed mismatch. Expected selectors:
+- main coordinator (default/plan): `{{ omp_builder_coordinator_model }}`
+- architect: `{{ omp_builder_architect_model }}`
+- reviewer: `{{ omp_builder_reviewer_model }}`
+- designer: `{{ omp_builder_designer_model }}`
+- implementer-openai: `{{ omp_builder_implementer_model }}`
+- implementer-runinfra: `{{ omp_builder_runinfra_implementer_model }}`
+- implementer-mistral: `{{ omp_builder_mistral_implementer_model }}`
+- acceptance-deepseek: `{{ omp_builder_acceptance_model }}`
+- acceptance-runinfra: `{{ omp_builder_runinfra_acceptance_model }}`
+
+Designer output is a proposal, not approval to implement.
 Report an unavailable model or unintended fallback as BLOCKED instead of silently
 substituting another model.
 

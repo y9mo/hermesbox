@@ -246,7 +246,11 @@ them without adding deployment files to a project. OMP project agent files take
 precedence: inspect any `.omp/agents` in the active repository and reconcile
 same-name definitions before starting. Project config, CLI/runtime overrides and
 model fallback also need live inspection. Verify the *actual* provider/model and
-effort in Agent Hub, not just the requested selector. Do not proceed on a mismatch.
+effort for each child, not just the requested selector. Agent Hub shows the
+resolved model and activity, but its roster and task results can omit effort.
+Inspect the focused child's status line or its session JSONL `model_change`
+and `thinking_level_change` records to establish the effective values.
+Report unavailable effort evidence as unverified; do not proceed on a mismatch.
 The coordinator append prompt scopes coordination to the main session; children
 retain their specialist assignment. A project `APPEND_SYSTEM.md` can override the
 user file: if present, explicitly launch with
@@ -288,9 +292,9 @@ Complete and record these host checks; local unit/syntax tests do not establish 
    Catalog presence is not authentication or inference. Make a small live request
    with a harmless read/tool call on each selected provider, then dispatch all eight
    named specialists on harmless assignments. Check the effective model, medium
-   effort for architecture/review, low effort for design, max effort for the main
-   coordinator and DeepSeek/RunInfra implementation and acceptance, and medium
-   effort for Mistral implementation,
+   effort for the main coordinator, architecture/review, and OpenAI
+   implementation; low effort for design; max effort for DeepSeek/RunInfra
+   implementation and acceptance; and medium effort for Mistral implementation,
    streaming, tools, discovery, and unintended fallback. Run a synthetic
    browser/image smoke with each available acceptance agent. Treat unavailable
    models as BLOCKED for their selected agent; do not silently substitute another.

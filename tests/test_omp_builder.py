@@ -97,6 +97,20 @@ class Helpers(unittest.TestCase):
                          "y9mo/mistral/hermes")
         self.values.update(defaults)
         config = yaml.safe_load(self.render("config.yml").read_text())
+        coordinator_prompt = self.render("APPEND_SYSTEM.md").read_text()
+        prompt_roles = (
+            ("main coordinator (default/plan)", "default"),
+            ("architect", "architect"),
+            ("reviewer", "reviewer"),
+            ("designer", "designer"),
+            ("implementer-openai", "implementer"),
+            ("implementer-runinfra", "implementer_runinfra"),
+            ("implementer-mistral", "implementer_mistral"),
+            ("acceptance-deepseek", "acceptance"),
+            ("acceptance-runinfra", "acceptance_runinfra"),
+        )
+        for label, role in prompt_roles:
+            self.assertIn(f"- {label}: `{config['modelRoles'][role]}`", coordinator_prompt)
         agents = {file.stem: file.read_text() for file in (ROLE / "files/agents").glob("*.md")}
         variants = (("implementer", "openai", "implementer"),
                     ("implementer", "runinfra", "implementer_runinfra"),
