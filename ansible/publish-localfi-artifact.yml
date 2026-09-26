@@ -23,6 +23,7 @@
         that:
           - localfi_artifact_bundle | length > 0
           - localfi_artifact_release_id is match('^[A-Za-z0-9._-]+$')
+          - localfi_artifact_release_id not in ['.', '..']
         fail_msg: >-
           Supply localfi_artifact_bundle and a safe localfi_artifact_release_id.
 
@@ -209,7 +210,7 @@
 
     - name: Verify nginx is serving the artifact locally
       ansible.builtin.uri:
-        url: "http://127.0.0.1/{{ item }}"
+        url: "http://{{ localfi_artifact_bind_address }}/{{ item }}"
         status_code: 200
         return_content: true
       loop:
@@ -221,7 +222,7 @@
     - name: Verify the pilot title is served
       ansible.builtin.assert:
         that:
-          - "'LocalFi: oh-my-pi setup and first delivery pilot' in (localfi_http_checks.results[1].content | default(''))"
+          - "'LocalFi: OMP pilot on Hermesbox' in (localfi_http_checks.results[1].content | default(''))"
 
   tags:
     - publish
@@ -241,6 +242,7 @@
           ansible.builtin.assert:
             that:
               - localfi_artifact_rollback_release_id is match('^[A-Za-z0-9._-]+$')
+              - localfi_artifact_rollback_release_id not in ['.', '..']
 
         - name: Verify rollback release exists
           ansible.builtin.stat:
