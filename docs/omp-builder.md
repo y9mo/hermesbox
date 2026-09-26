@@ -214,8 +214,10 @@ an automatic restart to reload credentials or resume acceptance safely.
 | Role | Alias | Default model |
 |---|---|---|
 | Main coordinator | default / plan | openai-codex/gpt-6-luna:medium |
-| Architect | architect | openai-codex/gpt-6-sol:medium |
+| Architect (default) | architect | openai-codex/gpt-6-sol:medium |
+| Architect (alternative) | architect-astra | openai-codex/gpt-6-astra:low |
 | Reviewer | reviewer | openai-codex/gpt-6-sol:medium |
+| Reviewer Astra (advisory second opinion) | reviewer-astra | openai-codex/gpt-6-astra:low |
 | Designer | designer | openai-codex/gpt-6-astra:low |
 | Implementer (default) | implementer-openai | openai-codex/gpt-6-luna:medium |
 | Implementer (alternative) | implementer-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
@@ -227,6 +229,19 @@ The coordinator's `default` and `plan` roles apply to new model selections. A
 resumed session can retain its previously selected active model. In that session,
 use `/model` to select GPT-6 Luna at medium effort, then verify the status line
 before assigning more work.
+
+Select `architect-astra` explicitly when GPT-6 Astra should handle the full
+architect assignment. It follows the same repository approval gates as
+`architect`; its model selector is GPT-6 Astra at low effort.
+
+Use `reviewer-astra` when the operator requests a quick second opinion on a
+supplied diff or decision context. It is read-only and advisory; the required
+independent `reviewer` and acceptance steps remain separate. OMP reloads
+settings and discovers agents before each task dispatch, so newly installed
+named agents are available to an already-running session on its next task
+call. The main session's appended coordinator prompt is loaded at launch;
+restart and resume
+that session when its prompt text itself must be refreshed.
 
 Choose an agent name for each implementation and acceptance assignment. DeepSeek
 is the default; select a RunInfra or Mistral variant explicitly when it is available. Never
@@ -246,7 +261,11 @@ them without adding deployment files to a project. OMP project agent files take
 precedence: inspect any `.omp/agents` in the active repository and reconcile
 same-name definitions before starting. Project config, CLI/runtime overrides and
 model fallback also need live inspection. Verify the *actual* provider/model and
-effort in Agent Hub, not just the requested selector. Do not proceed on a mismatch.
+effort for each child, not just the requested selector. Agent Hub shows the
+resolved model and activity, but its roster and task results can omit effort.
+Inspect the focused child's status line or its session JSONL `model_change`
+and `thinking_level_change` records to establish the effective values.
+Report unavailable effort evidence as unverified; do not proceed on a mismatch.
 The coordinator append prompt scopes coordination to the main session; children
 retain their specialist assignment. A project `APPEND_SYSTEM.md` can override the
 user file: if present, explicitly launch with
@@ -288,9 +307,9 @@ Complete and record these host checks; local unit/syntax tests do not establish 
    Catalog presence is not authentication or inference. Make a small live request
    with a harmless read/tool call on each selected provider, then dispatch all eight
    named specialists on harmless assignments. Check the effective model, medium
-   effort for architecture/review, low effort for design, max effort for the main
-   coordinator and DeepSeek/RunInfra implementation and acceptance, and medium
-   effort for Mistral implementation,
+   effort for the main coordinator, architecture/review, and OpenAI
+   implementation; low effort for design; max effort for DeepSeek/RunInfra
+   implementation and acceptance; and medium effort for Mistral implementation,
    streaming, tools, discovery, and unintended fallback. Run a synthetic
    browser/image smoke with each available acceptance agent. Treat unavailable
    models as BLOCKED for their selected agent; do not silently substitute another.

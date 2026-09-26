@@ -22,7 +22,9 @@ omp_builder_mistral_key: >-
             omp_builder_mistral_key_passwordstore_entry, missing='error') }}
 omp_builder_coordinator_model: openai-codex/gpt-6-luna:medium
 omp_builder_architect_model: openai-codex/gpt-6-sol:medium
+omp_builder_architect_astra_model: openai-codex/gpt-6-astra:low
 omp_builder_reviewer_model: openai-codex/gpt-6-sol:medium
+omp_builder_reviewer_astra_model: openai-codex/gpt-6-astra:low
 omp_builder_designer_model: openai-codex/gpt-6-astra:low
 omp_builder_implementer_model: openai-codex/gpt-6-luna:medium
 omp_builder_acceptance_model: deepseek/deepseek-flash:max
