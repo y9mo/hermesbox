@@ -5,6 +5,7 @@ omp_builder_owner_public_key_file: "{{ lookup('env', 'HOME') }}/.ssh/hetznerclou
 omp_builder_coordinator_model: openai-codex/gpt-6-luna:medium
 omp_builder_architect_model: openai-codex/gpt-6-sol:medium
 omp_builder_reviewer_model: openai-codex/gpt-6-sol:medium
+omp_builder_reviewer_astra_model: openai-codex/gpt-6-astra:low
 omp_builder_designer_model: openai-codex/gpt-6-astra:low
 omp_builder_implementer_model: openai-codex/gpt-6-luna:medium
 omp_builder_acceptance_model: deepseek/deepseek-flash:max

@@ -216,6 +216,7 @@ an automatic restart to reload credentials or resume acceptance safely.
 | Main coordinator | default / plan | openai-codex/gpt-6-luna:medium |
 | Architect | architect | openai-codex/gpt-6-sol:medium |
 | Reviewer | reviewer | openai-codex/gpt-6-sol:medium |
+| Reviewer Astra (advisory second opinion) | reviewer-astra | openai-codex/gpt-6-astra:low |
 | Designer | designer | openai-codex/gpt-6-astra:low |
 | Implementer (default) | implementer-openai | openai-codex/gpt-6-luna:medium |
 | Implementer (alternative) | implementer-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
@@ -227,6 +228,10 @@ The coordinator's `default` and `plan` roles apply to new model selections. A
 resumed session can retain its previously selected active model. In that session,
 use `/model` to select GPT-6 Luna at medium effort, then verify the status line
 before assigning more work.
+
+Use `reviewer-astra` when the operator requests a quick second opinion on a
+supplied diff or decision context. It is read-only and advisory; the required
+independent `reviewer` and acceptance steps remain separate.
 
 Choose an agent name for each implementation and acceptance assignment. DeepSeek
 is the default; select a RunInfra or Mistral variant explicitly when it is available. Never
