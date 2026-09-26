@@ -231,7 +231,11 @@ before assigning more work.
 
 Use `reviewer-astra` when the operator requests a quick second opinion on a
 supplied diff or decision context. It is read-only and advisory; the required
-independent `reviewer` and acceptance steps remain separate.
+independent `reviewer` and acceptance steps remain separate. OMP reloads
+settings and discovers agents before each task dispatch, so this named agent is
+available to an already-running session on its next task call. The main
+session's appended coordinator prompt is loaded at launch; restart and resume
+that session when its prompt text itself must be refreshed.
 
 Choose an agent name for each implementation and acceptance assignment. DeepSeek
 is the default; select a RunInfra or Mistral variant explicitly when it is available. Never
