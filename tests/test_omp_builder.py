@@ -101,6 +101,7 @@ class Helpers(unittest.TestCase):
         prompt_roles = (
             ("main coordinator (default/plan)", "default"),
             ("architect", "architect"),
+            ("architect-astra", "architect_astra"),
             ("reviewer", "reviewer"),
             ("reviewer-astra", "reviewer_astra"),
             ("designer", "designer"),
@@ -131,6 +132,8 @@ class Helpers(unittest.TestCase):
             self.assertIn(alias, config["modelRoles"])
             self.assertEqual(config["task"]["agentModelOverrides"][frontmatter["name"]], "@" + alias)
             self.assertTrue(frontmatter["blocking"])
+        self.assertEqual(agents["architect"].split("---", 2)[2],
+                         agents["architect-astra"].split("---", 2)[2])
         astra_frontmatter = yaml.safe_load(agents["reviewer-astra"].split("---")[1])
         self.assertEqual(astra_frontmatter["tools"], ["read", "grep", "glob"])
         acceptance_deepseek = agents["acceptance-deepseek"].split("---", 2)[2]
@@ -145,6 +148,8 @@ class Helpers(unittest.TestCase):
         for role in ("architect", "reviewer"):
             self.assertEqual(config["modelRoles"][role],
                              "openai-codex/gpt-6-sol:medium")
+        self.assertEqual(config["modelRoles"]["architect_astra"],
+                         "openai-codex/gpt-6-astra:low")
         self.assertEqual(config["modelRoles"]["reviewer_astra"],
                          "openai-codex/gpt-6-astra:low")
         self.assertEqual(config["modelRoles"]["designer"],

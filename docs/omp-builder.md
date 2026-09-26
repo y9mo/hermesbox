@@ -214,7 +214,8 @@ an automatic restart to reload credentials or resume acceptance safely.
 | Role | Alias | Default model |
 |---|---|---|
 | Main coordinator | default / plan | openai-codex/gpt-6-luna:medium |
-| Architect | architect | openai-codex/gpt-6-sol:medium |
+| Architect (default) | architect | openai-codex/gpt-6-sol:medium |
+| Architect (alternative) | architect-astra | openai-codex/gpt-6-astra:low |
 | Reviewer | reviewer | openai-codex/gpt-6-sol:medium |
 | Reviewer Astra (advisory second opinion) | reviewer-astra | openai-codex/gpt-6-astra:low |
 | Designer | designer | openai-codex/gpt-6-astra:low |
@@ -229,12 +230,17 @@ resumed session can retain its previously selected active model. In that session
 use `/model` to select GPT-6 Luna at medium effort, then verify the status line
 before assigning more work.
 
+Select `architect-astra` explicitly when GPT-6 Astra should handle the full
+architect assignment. It follows the same repository approval gates as
+`architect`; its model selector is GPT-6 Astra at low effort.
+
 Use `reviewer-astra` when the operator requests a quick second opinion on a
 supplied diff or decision context. It is read-only and advisory; the required
 independent `reviewer` and acceptance steps remain separate. OMP reloads
-settings and discovers agents before each task dispatch, so this named agent is
-available to an already-running session on its next task call. The main
-session's appended coordinator prompt is loaded at launch; restart and resume
+settings and discovers agents before each task dispatch, so newly installed
+named agents are available to an already-running session on its next task
+call. The main session's appended coordinator prompt is loaded at launch;
+restart and resume
 that session when its prompt text itself must be refreshed.
 
 Choose an agent name for each implementation and acceptance assignment. DeepSeek

@@ -11,6 +11,8 @@ adopt the main coordinator's whole delivery sequence.
 
 Use native task calls to `architect`, `reviewer`, `designer` when interface design
 is needed, and the selected named implementer and acceptance agents.
+`architect-astra` is an explicit alternative to `architect` for the same planning
+and review-artifact duties; record which architect was selected.
 Use `reviewer-astra` for a requested, read-only second opinion on recent changes
 or decisions. Supply the exact diff or decision context to inspect. Its advisory
 findings do not satisfy the separate formal `reviewer` or acceptance gates.
@@ -26,6 +28,7 @@ the focused status line does not establish it. Report missing evidence as
 unverified, not as a confirmed mismatch. Expected selectors:
 - main coordinator (default/plan): `{{ omp_builder_coordinator_model }}`
 - architect: `{{ omp_builder_architect_model }}`
+- architect-astra: `{{ omp_builder_architect_astra_model }}`
 - reviewer: `{{ omp_builder_reviewer_model }}`
 - reviewer-astra: `{{ omp_builder_reviewer_astra_model }}`
 - designer: `{{ omp_builder_designer_model }}`

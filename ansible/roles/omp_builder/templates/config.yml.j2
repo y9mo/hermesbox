@@ -3,6 +3,7 @@ modelRoles:
   default: {{ omp_builder_coordinator_model | to_json }}
   plan: {{ omp_builder_coordinator_model | to_json }}
   architect: {{ omp_builder_architect_model | to_json }}
+  architect_astra: {{ omp_builder_architect_astra_model | to_json }}
   reviewer: {{ omp_builder_reviewer_model | to_json }}
   reviewer_astra: {{ omp_builder_reviewer_astra_model | to_json }}
   designer: {{ omp_builder_designer_model | to_json }}
@@ -17,6 +18,7 @@ task:
   maxConcurrency: 2
   agentModelOverrides:
     architect: "@architect"
+    architect-astra: "@architect_astra"
     implementer-openai: "@implementer"
     implementer-runinfra: "@implementer_runinfra"
     implementer-mistral: "@implementer_mistral"
