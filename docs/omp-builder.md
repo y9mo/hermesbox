@@ -170,7 +170,7 @@ an automatic restart to reload credentials or resume acceptance safely.
 
 | Role | Alias | Default model |
 |---|---|---|
-| Main coordinator | default / plan | deepseek/deepseek-flash:max |
+| Main coordinator | default / plan | openai-codex/gpt-6-luna:low |
 | Architect | architect | openai-codex/gpt-6-sol:medium |
 | Reviewer | reviewer | openai-codex/gpt-6-sol:medium |
 | Designer | designer | openai-codex/gpt-6-astra:low |
@@ -182,7 +182,7 @@ an automatic restart to reload credentials or resume acceptance safely.
 
 The coordinator's `default` and `plan` roles apply to new model selections. A
 resumed session can retain its previously selected active model. In that session,
-use `/model` to select DeepSeek Flash at max effort, then verify the status line
+use `/model` to select GPT-6 Luna at low effort, then verify the status line
 before assigning more work.
 
 Choose an agent name for each implementation and acceptance assignment. DeepSeek
@@ -234,7 +234,7 @@ Complete and record these host checks; local unit/syntax tests do not establish 
    From a project root:
 
    ```bash
-   omp-builder-launch models find deepseek-flash --json
+   omp-builder-launch models find gpt-6-luna --json
    omp-builder-launch models find GLM-5.3-Flash --json
    omp-builder-launch models find zai-glm-5-3 --json
    omp-builder-launch models find gpt-6-luna --json

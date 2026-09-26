@@ -20,7 +20,7 @@ omp_builder_deepseek_key: >-
 omp_builder_mistral_key: >-
   {{ lookup('community.general.passwordstore',
             omp_builder_mistral_key_passwordstore_entry, missing='error') }}
-omp_builder_coordinator_model: deepseek/deepseek-flash:max
+omp_builder_coordinator_model: openai-codex/gpt-6-luna:low
 omp_builder_architect_model: openai-codex/gpt-6-sol:medium
 omp_builder_reviewer_model: openai-codex/gpt-6-sol:medium
 omp_builder_designer_model: openai-codex/gpt-6-astra:low

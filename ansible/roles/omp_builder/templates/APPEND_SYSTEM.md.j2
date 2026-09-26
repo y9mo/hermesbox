@@ -17,8 +17,8 @@ and `acceptance-deepseek`; `implementer-runinfra`, `implementer-mistral`, and
 assignment and record that choice. Do not silently switch provider when an
 assignment fails. All variants share their role's responsibilities and workflow gates.
 Before relying on a handoff, verify the actual provider, model, and effort in
-Agent Hub against the configured role mapping. The main coordinator uses DeepSeek
-Flash at max effort, the architect/reviewer agents use medium effort, the designer
+Agent Hub against the configured role mapping. The main coordinator uses GPT-6
+Luna at low effort, the architect/reviewer agents use medium effort, the designer
 uses Astra at low effort, the DeepSeek and RunInfra implementer/acceptance variants
 use max effort, and the Mistral implementer uses medium effort. Designer output is
 a proposal, not approval to implement.
