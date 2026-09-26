@@ -78,7 +78,7 @@ it is not a deployment test. The role supports Debian Linux on x86_64 and aarch6
 
 | Tool | Pin | Upstream |
 |---|---|---|
-| OMP | 18.2.11 | [Release](https://github.com/can1357/oh-my-pi/releases/tag/v18.2.11) |
+| OMP | 18.3.2 | [Release](https://github.com/can1357/oh-my-pi/releases/tag/v18.3.2) |
 | Herdr | 0.9.1 | [Release](https://github.com/herdrdev/herdr/releases/tag/v0.9.1) |
 | Go | 1.26.8 | [Downloads](https://go.dev/dl/) |
 | Node | 22.23.2 | [Release files](https://nodejs.org/dist/v22.23.2/) |
@@ -154,7 +154,7 @@ password-store entries do not provide OpenAI authentication. Press `Alt+A` for
 OMP's Agent Hub: model, activity, transcript and steering for each child. Herdr
 owns the remote panes; task children need not have separate panes.
 
-OMP 18.2.11 also accepts `OPENAI_API_KEY` for models under the separate `openai`
+OMP 18.3.2 also accepts `OPENAI_API_KEY` for models under the separate `openai`
 provider. That key does not authenticate the current `openai-codex/...` selectors.
 Using API billing would require another protected key, exporting it as
 `OPENAI_API_KEY`, and changing the architect/reviewer selectors to API model IDs
@@ -287,11 +287,11 @@ The unit tests exercise missing and quoted GitHub/DeepSeek/RunInfra/Mistral cred
 argument forwarding, role alias resolution, and the low/medium/max effort mappings. They
 do not make model calls or install host software.
 
-Sources checked against the pinned OMP release: [agent roles/discovery](https://github.com/can1357/oh-my-pi/blob/v18.2.11/docs/task-agent-discovery.md),
-[configuration precedence](https://github.com/can1357/oh-my-pi/blob/v18.2.11/docs/config-usage.md),
-[prompt scope](https://github.com/can1357/oh-my-pi/blob/v18.2.11/docs/system-prompt-customization.md),
-[browser Eval API](https://github.com/can1357/oh-my-pi/blob/v18.2.11/docs/tools/browser.md),
-[OMP environment variables](https://github.com/can1357/oh-my-pi/blob/v18.2.11/docs/environment-variables.md),
+Sources checked against the pinned OMP release: [agent roles/discovery](https://github.com/can1357/oh-my-pi/blob/v18.3.2/docs/task-agent-discovery.md),
+[configuration precedence](https://github.com/can1357/oh-my-pi/blob/v18.3.2/docs/config-usage.md),
+[prompt scope](https://github.com/can1357/oh-my-pi/blob/v18.3.2/docs/system-prompt-customization.md),
+[browser Eval API](https://github.com/can1357/oh-my-pi/blob/v18.3.2/docs/tools/browser.md),
+[OMP environment variables](https://github.com/can1357/oh-my-pi/blob/v18.3.2/docs/environment-variables.md),
 [Ansible password-store lookup](https://docs.ansible.com/projects/ansible/latest/collections/community/general/passwordstore_lookup.html),
 [DeepSeek models and pricing](https://api-docs.deepseek.com/quick_start/pricing/),
 [DeepSeek thinking controls](https://api-docs.deepseek.com/guides/thinking_mode/),
