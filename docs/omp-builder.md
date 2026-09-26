@@ -4,7 +4,7 @@ This provisions a reusable OMP and Herdr environment on
 `hermesbox.tail85f0d.ts.net`. It installs the agent runtime and development tools;
 it does not start paid agents, clone a project, or approve, implement, review, or
 accept any project change. OMP supplies the native role and collaboration system.
-Account shells and the launcher load protected GitHub and RunInfra credentials.
+Account shells and the launcher load protected GitHub, DeepSeek, RunInfra and Mistral credentials.
 
 ## Install from this computer
 
@@ -36,17 +36,25 @@ Ansible controller:
 ```bash
 pass show y9mo/github/pat/hermesbox >/dev/null
 pass show y9mo/runinfra/apikey >/dev/null
+pass show y9mo/deepseek/hermes >/dev/null
+pass show y9mo/mistral/hermes >/dev/null
 ```
 
-The `community.general.passwordstore` lookup fails when either entry is missing.
+The `community.general.passwordstore` lookup fails when any entry is missing.
 The secret task suppresses logs and diffs and writes root-owned
 `/etc/omp-builder/credentials.env`, group `omp-builder`, mode 0640. Reapply after
 changing a password-store entry to rotate the remote credential. The GitHub PAT is
 exported as `GH_TOKEN`; GitHub CLI uses it directly, and Git is configured to use
 `gh auth git-credential` for HTTPS remotes. The password store and GPG material
-remain on the controller. New SSH and Herdr shells load both variables. After
-rotating credentials or applying the role in an existing pane, start a new pane
-or run `set +x; source /etc/omp-builder/credentials.env`.
+remain on the controller. New SSH and Herdr shells load all four variables. After
+rotating credentials or adding a provider, an already-running OMP process keeps
+its old environment and may keep its loaded model roles. Use `/exit` in OMP,
+return to a shell in the same project directory, and run
+`omp-builder-launch --resume` to select the saved session. Do not authorize a
+different provider when a specialist unexpectedly resolves to the old model.
+Reattaching another Herdr tab to the same pane does not start a new OMP process.
+Sourcing `credentials.env` in a shell only affects commands launched afterward;
+it cannot update an OMP process that is already running.
 
 Repeat the same apply to verify idempotency. The role never modifies repositories
 or worktrees placed in its workspace. Ansible can validate syntax without the
@@ -58,10 +66,10 @@ it is not a deployment test. The role supports Debian Linux on x86_64 and aarch6
 | Path | Purpose |
 |---|---|
 | `/var/lib/omp-builder` | Dedicated account home, private OMP auth/sessions and Herdr state |
-| `/var/lib/omp-builder/.omp/agent/agents` | Four native role definitions shared by project worktrees |
+| `/var/lib/omp-builder/.omp/agent/agents` | Six native agent definitions shared by project worktrees |
 | `/etc/omp-builder/config.yml` | Central model mappings and pilot settings |
-| `/etc/omp-builder/credentials.env` | Root-managed GitHub and RunInfra credentials loaded by the launcher |
-| `/var/lib/omp-builder/.omp/agent/models.yml` | RunInfra provider, environment key reference only |
+| `/etc/omp-builder/credentials.env` | Root-managed GitHub, DeepSeek, RunInfra and Mistral credentials loaded by the launcher |
+| `/var/lib/omp-builder/.omp/agent/models.yml` | DeepSeek and RunInfra providers, environment key references only |
 | `/var/lib/omp-builder/.omp/agent/APPEND_SYSTEM.md` | Scoped main-coordinator instructions |
 | `/opt/omp-builder/workspace` | Persistent location for project repositories |
 | `/opt/omp-builder/worktrees` | Persistent Herdr worktree location |
@@ -70,15 +78,58 @@ it is not a deployment test. The role supports Debian Linux on x86_64 and aarch6
 
 | Tool | Pin | Upstream |
 |---|---|---|
-| OMP | 18.2.5 | [Release](https://github.com/can1357/oh-my-pi/releases/tag/v18.2.5) |
+| OMP | 18.3.2 | [Release](https://github.com/can1357/oh-my-pi/releases/tag/v18.3.2) |
 | Herdr | 0.9.1 | [Release](https://github.com/herdrdev/herdr/releases/tag/v0.9.1) |
 | Go | 1.26.8 | [Downloads](https://go.dev/dl/) |
 | Node | 22.23.2 | [Release files](https://nodejs.org/dist/v22.23.2/) |
 
 Both x86_64 and aarch64 downloads are SHA-256 pinned in role defaults. OMP uses
 its standalone release binary. Debian supplies Chromium and build dependencies.
-Update versions and matching checksums together. Existing Herdr sessions retain
-their running binary until deliberately restarted; installing does not restart them.
+Existing Herdr sessions retain their running binary until deliberately restarted;
+installing does not restart them.
+
+## Upgrade OMP
+
+Use the Ansible pin for upgrades; do not run `omp update` on Hermesbox. The binary
+is installed into a root-owned, versioned directory and selected by an account
+symlink, so an in-session self-update would bypass the repository's version and
+checksum pin.
+
+1. Choose a published [OMP release](https://github.com/can1357/oh-my-pi/releases),
+   and copy the SHA-256 values for `omp-linux-x64` and `omp-linux-arm64` from that
+   release's assets.
+2. In `ansible/roles/omp_builder/defaults/main.yml`, update
+   `omp_builder_version` and both platform `omp_sha` values together. Update
+   version-specific references in this guide and agent templates when their
+   documented behavior depends on the pinned release.
+3. Run the focused tests and syntax check shown under
+   [Maintenance and local checks](#maintenance-and-local-checks).
+4. With the controller password store unlocked, apply the playbook using the
+   existing Tailscale inventory:
+
+   ```bash
+   ansible-playbook -i ansible/inventory/omp-builder-host-tailscale.yml \
+     ansible/install-omp-builder.yml
+   ```
+
+   If the MagicDNS name does not resolve, override `ansible_host` with the
+   Hermesbox Tailscale IP and set `ansible_ssh_common_args` to validate the
+   existing key under `hermesbox.tail85f0d.ts.net`.
+5. Apply the same playbook a second time and confirm `changed=0`. Verify the
+   installed binary and role map on Hermesbox:
+
+   ```bash
+   ssh hermesbox-builder 'omp --version; omp-builder-launch config get modelRoles --json'
+   ```
+
+6. Exit and relaunch existing OMP sessions deliberately; provisioning does not
+   replace the binary of a running process. Check the model shown after resuming:
+   a saved session's model can override the configured `default` role. Select the
+   coordinator model with `/model` before prompting, or pass an explicit
+   `--model=openai-codex/gpt-6-luna --thinking=medium` when launching the session.
+
+To roll back, restore the previous version and its architecture-specific
+checksums in the role defaults, then apply the playbook again.
 
 ## Connect with Herdr
 
@@ -141,12 +192,12 @@ authentication. Close the tunnel with `Ctrl+C` after OMP confirms the login. Do
 not paste the original `auth.openai.com/oauth/authorize` URL into OMP's code
 prompt; manual recovery requires the final callback URL containing `code=`.
 
-The login belongs to this Unix account, not root or your laptop. The two configured
+The login belongs to this Unix account, not root or your laptop. The configured
 password-store entries do not provide OpenAI authentication. Press `Alt+A` for
 OMP's Agent Hub: model, activity, transcript and steering for each child. Herdr
 owns the remote panes; task children need not have separate panes.
 
-OMP 18.2.5 also accepts `OPENAI_API_KEY` for models under the separate `openai`
+OMP 18.3.2 also accepts `OPENAI_API_KEY` for models under the separate `openai`
 provider. That key does not authenticate the current `openai-codex/...` selectors.
 Using API billing would require another protected key, exporting it as
 `OPENAI_API_KEY`, and changing the architect/reviewer selectors to API model IDs
@@ -162,13 +213,28 @@ an automatic restart to reload credentials or resume acceptance safely.
 
 | Role | Alias | Default model |
 |---|---|---|
-| Main / architect | default / architect | openai-codex/gpt-5.6-sol:low |
-| Reviewer | reviewer | openai-codex/gpt-5.6-sol:low |
-| Implementer | implementer | runinfra/zai-org/GLM-5.3-Flash:max |
-| Acceptance | acceptance | runinfra/zai-org/GLM-5.3-Flash:max |
+| Main coordinator | default / plan | openai-codex/gpt-6-luna:medium |
+| Architect | architect | openai-codex/gpt-6-sol:medium |
+| Reviewer | reviewer | openai-codex/gpt-6-sol:medium |
+| Designer | designer | openai-codex/gpt-6-astra:low |
+| Implementer (default) | implementer-openai | openai-codex/gpt-6-luna:medium |
+| Implementer (alternative) | implementer-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
+| Implementer (alternative) | implementer-mistral | mistral/zai-glm-5-3:medium |
+| Acceptance (default) | acceptance-deepseek | deepseek/deepseek-flash:max |
+| Acceptance (alternative) | acceptance-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
 
-Change the four `omp_builder_*_model` variables and reapply to choose another AI.
-`openai-codex/gpt-6-astra:low` is the explicit architect/reviewer alternative.
+The coordinator's `default` and `plan` roles apply to new model selections. A
+resumed session can retain its previously selected active model. In that session,
+use `/model` to select GPT-6 Luna at medium effort, then verify the status line
+before assigning more work.
+
+Choose an agent name for each implementation and acceptance assignment. DeepSeek
+is the default; select a RunInfra or Mistral variant explicitly when it is available. Never
+silently switch providers after a failed task. All variants share the same
+instructions for their responsibility. Record the selected agent and effective
+provider/model/effort with the run evidence. Repository content read by an agent
+is sent to its selected model provider. Change the corresponding
+`omp_builder_*_model` variable and reapply to alter a mapping.
 Agent definitions use aliases, not embedded model IDs. The launcher exports the
 native `PI_CONFIG_FILES` overlay so settings propagate to task children; model
 mappings and `task.agentModelOverrides` point to the same aliases. There is no
@@ -207,21 +273,27 @@ Complete and record these host checks; local unit/syntax tests do not establish 
 
 1. Apply twice and confirm the second run changes nothing. Check tool versions
    under `omp-builder` and verify non-interactive SSH PATH.
-2. Provision the GitHub and RunInfra entries and complete `/login` for OpenAI Codex.
+2. Provision the GitHub, DeepSeek, RunInfra and Mistral entries and complete `/login` for OpenAI Codex.
    From a project root:
 
    ```bash
+   omp-builder-launch models find gpt-6-luna --json
    omp-builder-launch models find GLM-5.3-Flash --json
-   omp-builder-launch models find gpt-5.6-sol --json
+   omp-builder-launch models find zai-glm-5-3 --json
+   omp-builder-launch models find gpt-6-luna --json
+   omp-builder-launch models find gpt-6-sol --json
    omp-builder-launch config get modelRoles --json
    ```
 
    Catalog presence is not authentication or inference. Make a small live request
-   with a harmless read/tool call on each selected provider, then dispatch all four
-   named specialists on harmless assignments. Check the effective model, low
-   effort for architecture/review, max effort for implementation/acceptance,
+   with a harmless read/tool call on each selected provider, then dispatch all eight
+   named specialists on harmless assignments. Check the effective model, medium
+   effort for architecture/review, low effort for design, max effort for the main
+   coordinator and DeepSeek/RunInfra implementation and acceptance, and medium
+   effort for Mistral implementation,
    streaming, tools, discovery, and unintended fallback. Run a synthetic
-   browser/image smoke as GLM acceptance. Treat unavailable models as BLOCKED.
+   browser/image smoke with each available acceptance agent. Treat unavailable
+   models as BLOCKED for their selected agent; do not silently substitute another.
 3. In Herdr observe a child in Agent Hub, detach/reconnect without stopping it,
    and verify explicit manual resume after a deliberate disposable-session restart.
 4. Rehearse in a disposable worktree: sequential implementation, separate review,
@@ -254,15 +326,19 @@ For a complete disposable Debian install and idempotency check, install
 downloads the pinned tools into an isolated container and deletes that container
 on exit. It uses a dummy API key and makes no paid model requests.
 
-The unit tests exercise missing and quoted GitHub/RunInfra credentials, exact
-argument forwarding, role alias resolution, and the low/max effort mappings. They
+The unit tests exercise missing and quoted GitHub/DeepSeek/RunInfra/Mistral credentials, exact
+argument forwarding, role alias resolution, and the low/medium/max effort mappings. They
 do not make model calls or install host software.
 
-Sources checked against the pinned OMP release: [agent roles/discovery](https://github.com/can1357/oh-my-pi/blob/v18.2.5/docs/task-agent-discovery.md),
-[configuration precedence](https://github.com/can1357/oh-my-pi/blob/v18.2.5/docs/config-usage.md),
-[prompt scope](https://github.com/can1357/oh-my-pi/blob/v18.2.5/docs/system-prompt-customization.md),
-[browser Eval API](https://github.com/can1357/oh-my-pi/blob/v18.2.5/docs/tools/browser.md),
-[OMP environment variables](https://github.com/can1357/oh-my-pi/blob/v18.2.5/docs/environment-variables.md),
+Sources checked against the pinned OMP release: [agent roles/discovery](https://github.com/can1357/oh-my-pi/blob/v18.3.2/docs/task-agent-discovery.md),
+[configuration precedence](https://github.com/can1357/oh-my-pi/blob/v18.3.2/docs/config-usage.md),
+[prompt scope](https://github.com/can1357/oh-my-pi/blob/v18.3.2/docs/system-prompt-customization.md),
+[browser Eval API](https://github.com/can1357/oh-my-pi/blob/v18.3.2/docs/tools/browser.md),
+[OMP environment variables](https://github.com/can1357/oh-my-pi/blob/v18.3.2/docs/environment-variables.md),
 [Ansible password-store lookup](https://docs.ansible.com/projects/ansible/latest/collections/community/general/passwordstore_lookup.html),
+[DeepSeek models and pricing](https://api-docs.deepseek.com/quick_start/pricing/),
+[DeepSeek thinking controls](https://api-docs.deepseek.com/guides/thinking_mode/),
+[Mistral GLM 5.3 model](https://docs.mistral.ai/models/zai-glm-5-3),
+[Mistral chat completions API](https://docs.mistral.ai/api/),
 [Herdr remote sessions](https://herdr.dev/docs/persistence-remote/),
 [Herdr integration](https://herdr.dev/docs/integrations/).

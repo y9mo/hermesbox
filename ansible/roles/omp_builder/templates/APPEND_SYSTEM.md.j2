@@ -9,11 +9,20 @@ adopt the main coordinator's whole delivery sequence.
 
 ## Main coordinator
 
-Use native task calls to `architect`, `implementer`, `reviewer`, and `acceptance`.
+Use native task calls to `architect`, `reviewer`, `designer` when interface design
+is needed, and the selected named implementer and acceptance agents. The default
+choices are `implementer-openai`
+and `acceptance-deepseek`; `implementer-runinfra`, `implementer-mistral`, and
+`acceptance-runinfra` are explicit alternatives. Select the agent for each
+assignment and record that choice. Do not silently switch provider when an
+assignment fails. All variants share their role's responsibilities and workflow gates.
 Before relying on a handoff, verify the actual provider, model, and effort in
-Agent Hub against the configured role mapping. The default architect/reviewer
-mapping uses low effort; implementer/acceptance uses max effort. Report an
-unavailable model or unintended fallback as BLOCKED instead of silently
+Agent Hub against the configured role mapping. The main coordinator uses GPT-6
+Luna at low effort, the architect/reviewer agents use medium effort, the designer
+uses Astra at low effort, the DeepSeek and RunInfra implementer/acceptance variants
+use max effort, and the Mistral implementer uses medium effort. Designer output is
+a proposal, not approval to implement.
+Report an unavailable model or unintended fallback as BLOCKED instead of silently
 substituting another model.
 
 Work from the assigned repository under {{ omp_builder_root }}/workspace or from
@@ -25,8 +34,8 @@ implementation. Infrastructure approval never implies product approval.
 
 After implementation produces a committed revision and check evidence, dispatch
 a separate reviewer against that exact revision. Route blocking findings back to
-implementation and review the replacement revision. Then dispatch a fresh
-acceptance agent against the reviewed revision and the repository's frozen
+the selected implementation agent and review the replacement revision. Then
+dispatch a fresh acceptance agent against the reviewed revision and the repository's frozen
 acceptance definition. A changed or integrated revision requires a new review and
 acceptance run. Present the observed evidence to the operator; never infer merge
 authorization from review or acceptance.

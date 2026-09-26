@@ -1,20 +1,28 @@
 # Managed pilot overlay; inherited by native task children through PI_CONFIG_FILES.
 modelRoles:
-  default: {{ omp_builder_architect_model | to_json }}
-  plan: {{ omp_builder_architect_model | to_json }}
+  default: {{ omp_builder_coordinator_model | to_json }}
+  plan: {{ omp_builder_coordinator_model | to_json }}
   architect: {{ omp_builder_architect_model | to_json }}
   reviewer: {{ omp_builder_reviewer_model | to_json }}
+  designer: {{ omp_builder_designer_model | to_json }}
   implementer: {{ omp_builder_implementer_model | to_json }}
   acceptance: {{ omp_builder_acceptance_model | to_json }}
+  implementer_runinfra: {{ omp_builder_runinfra_implementer_model | to_json }}
+  implementer_mistral: {{ omp_builder_mistral_implementer_model | to_json }}
+  acceptance_runinfra: {{ omp_builder_runinfra_acceptance_model | to_json }}
   task: {{ omp_builder_implementer_model | to_json }}
   smol: {{ omp_builder_implementer_model | to_json }}
 task:
   maxConcurrency: 2
   agentModelOverrides:
     architect: "@architect"
-    implementer: "@implementer"
+    implementer-openai: "@implementer"
+    implementer-runinfra: "@implementer_runinfra"
+    implementer-mistral: "@implementer_mistral"
     reviewer: "@reviewer"
-    acceptance: "@acceptance"
+    designer: "@designer"
+    acceptance-deepseek: "@acceptance"
+    acceptance-runinfra: "@acceptance_runinfra"
 async:
   enabled: false
 browser:

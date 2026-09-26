@@ -2,8 +2,12 @@
 # Optional non-secret overrides: pass -e @ansible/omp-builder.example.yml.
 # Secrets come from the password-store entries configured in role defaults.
 omp_builder_owner_public_key_file: "{{ lookup('env', 'HOME') }}/.ssh/hetznercloud.pub"
-omp_builder_architect_model: openai-codex/gpt-5.6-sol:low
-omp_builder_reviewer_model: openai-codex/gpt-5.6-sol:low
-# Explicit alternative for either role: openai-codex/gpt-6-astra:low
-omp_builder_implementer_model: runinfra/zai-org/GLM-5.3-Flash:max
-omp_builder_acceptance_model: runinfra/zai-org/GLM-5.3-Flash:max
+omp_builder_coordinator_model: openai-codex/gpt-6-luna:medium
+omp_builder_architect_model: openai-codex/gpt-6-sol:medium
+omp_builder_reviewer_model: openai-codex/gpt-6-sol:medium
+omp_builder_designer_model: openai-codex/gpt-6-astra:low
+omp_builder_implementer_model: openai-codex/gpt-6-luna:medium
+omp_builder_acceptance_model: deepseek/deepseek-flash:max
+omp_builder_runinfra_implementer_model: runinfra/zai-org/GLM-5.3-Flash:max
+omp_builder_runinfra_acceptance_model: runinfra/zai-org/GLM-5.3-Flash:max
+omp_builder_mistral_implementer_model: mistral/zai-glm-5-3:medium

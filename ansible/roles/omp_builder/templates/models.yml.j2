@@ -1,4 +1,30 @@
 providers:
+  deepseek:
+    baseUrl: https://api.deepseek.com
+    api: openai-completions
+    apiKey: DEEPSEEK_API_KEY
+    models:
+      - id: deepseek-flash
+        name: DeepSeek V4.1 Flash
+        reasoning: true
+        thinking:
+          minLevel: low
+          maxLevel: max
+          mode: effort
+        input: [text, image]
+        contextWindow: 1000000
+        maxTokens: 384000
+        compat:
+          supportsDeveloperRole: false
+          supportsReasoningEffort: true
+          maxTokensField: max_tokens
+          reasoningContentField: reasoning_content
+          requiresReasoningContentForToolCalls: true
+          requiresAssistantContentForToolCalls: true
+          supportsToolChoice: false
+          extraBody:
+            thinking:
+              type: enabled
   runinfra:
     baseUrl: https://api.runinfra.ai/v1
     api: openai-completions
@@ -10,6 +36,20 @@ providers:
         input: [text, image]
         contextWindow: 1048576
         maxTokens: 32768
+        compat:
+          supportsReasoningEffort: true
+          maxTokensField: max_tokens
+  mistral:
+    baseUrl: https://api.mistral.ai/v1
+    api: openai-completions
+    apiKey: MISTRAL_API_KEY
+    models:
+      - id: zai-glm-5-3
+        name: GLM 5.3 (Mistral)
+        reasoning: true
+        input: [text]
+        contextWindow: 1000000
+        maxTokens: 128000
         compat:
           supportsReasoningEffort: true
           maxTokensField: max_tokens
