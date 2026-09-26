@@ -85,8 +85,51 @@ it is not a deployment test. The role supports Debian Linux on x86_64 and aarch6
 
 Both x86_64 and aarch64 downloads are SHA-256 pinned in role defaults. OMP uses
 its standalone release binary. Debian supplies Chromium and build dependencies.
-Update versions and matching checksums together. Existing Herdr sessions retain
-their running binary until deliberately restarted; installing does not restart them.
+Existing Herdr sessions retain their running binary until deliberately restarted;
+installing does not restart them.
+
+## Upgrade OMP
+
+Use the Ansible pin for upgrades; do not run `omp update` on Hermesbox. The binary
+is installed into a root-owned, versioned directory and selected by an account
+symlink, so an in-session self-update would bypass the repository's version and
+checksum pin.
+
+1. Choose a published [OMP release](https://github.com/can1357/oh-my-pi/releases),
+   and copy the SHA-256 values for `omp-linux-x64` and `omp-linux-arm64` from that
+   release's assets.
+2. In `ansible/roles/omp_builder/defaults/main.yml`, update
+   `omp_builder_version` and both platform `omp_sha` values together. Update
+   version-specific references in this guide and agent templates when their
+   documented behavior depends on the pinned release.
+3. Run the focused tests and syntax check shown under
+   [Maintenance and local checks](#maintenance-and-local-checks).
+4. With the controller password store unlocked, apply the playbook using the
+   existing Tailscale inventory:
+
+   ```bash
+   ansible-playbook -i ansible/inventory/omp-builder-host-tailscale.yml \
+     ansible/install-omp-builder.yml
+   ```
+
+   If the MagicDNS name does not resolve, override `ansible_host` with the
+   Hermesbox Tailscale IP and set `ansible_ssh_common_args` to validate the
+   existing key under `hermesbox.tail85f0d.ts.net`.
+5. Apply the same playbook a second time and confirm `changed=0`. Verify the
+   installed binary and role map on Hermesbox:
+
+   ```bash
+   ssh hermesbox-builder 'omp --version; omp-builder-launch config get modelRoles --json'
+   ```
+
+6. Exit and relaunch existing OMP sessions deliberately; provisioning does not
+   replace the binary of a running process. Check the model shown after resuming:
+   a saved session's model can override the configured `default` role. Select the
+   coordinator model with `/model` before prompting, or pass an explicit
+   `--model=openai-codex/gpt-6-luna --thinking=low` when launching the session.
+
+To roll back, restore the previous version and its architecture-specific
+checksums in the role defaults, then apply the playbook again.
 
 ## Connect with Herdr
 
