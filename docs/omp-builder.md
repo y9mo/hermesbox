@@ -126,7 +126,7 @@ checksum pin.
    replace the binary of a running process. Check the model shown after resuming:
    a saved session's model can override the configured `default` role. Select the
    coordinator model with `/model` before prompting, or pass an explicit
-   `--model=openai-codex/gpt-6-luna --thinking=low` when launching the session.
+   `--model=openai-codex/gpt-6-luna --thinking=medium` when launching the session.
 
 To roll back, restore the previous version and its architecture-specific
 checksums in the role defaults, then apply the playbook again.
@@ -213,11 +213,11 @@ an automatic restart to reload credentials or resume acceptance safely.
 
 | Role | Alias | Default model |
 |---|---|---|
-| Main coordinator | default / plan | openai-codex/gpt-6-luna:low |
+| Main coordinator | default / plan | openai-codex/gpt-6-luna:medium |
 | Architect | architect | openai-codex/gpt-6-sol:medium |
 | Reviewer | reviewer | openai-codex/gpt-6-sol:medium |
 | Designer | designer | openai-codex/gpt-6-astra:low |
-| Implementer (default) | implementer-openai | openai-codex/gpt-6-luna:low |
+| Implementer (default) | implementer-openai | openai-codex/gpt-6-luna:medium |
 | Implementer (alternative) | implementer-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
 | Implementer (alternative) | implementer-mistral | mistral/zai-glm-5-3:medium |
 | Acceptance (default) | acceptance-deepseek | deepseek/deepseek-flash:max |
@@ -225,7 +225,7 @@ an automatic restart to reload credentials or resume acceptance safely.
 
 The coordinator's `default` and `plan` roles apply to new model selections. A
 resumed session can retain its previously selected active model. In that session,
-use `/model` to select GPT-6 Luna at low effort, then verify the status line
+use `/model` to select GPT-6 Luna at medium effort, then verify the status line
 before assigning more work.
 
 Choose an agent name for each implementation and acceptance assignment. DeepSeek

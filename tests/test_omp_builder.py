@@ -124,16 +124,16 @@ class Helpers(unittest.TestCase):
         self.assertFalse(config["async"]["enabled"])
         self.assertEqual(config["task"]["maxConcurrency"], 2)
         for role in ("default", "plan"):
-            self.assertEqual(config["modelRoles"][role], "openai-codex/gpt-6-luna:low")
+            self.assertEqual(config["modelRoles"][role], "openai-codex/gpt-6-luna:medium")
         for role in ("architect", "reviewer"):
             self.assertEqual(config["modelRoles"][role],
                              "openai-codex/gpt-6-sol:medium")
         self.assertEqual(config["modelRoles"]["designer"],
                          "openai-codex/gpt-6-astra:low")
-        self.assertEqual(config["modelRoles"]["implementer"], "openai-codex/gpt-6-luna:low")
+        self.assertEqual(config["modelRoles"]["implementer"], "openai-codex/gpt-6-luna:medium")
         self.assertEqual(config["modelRoles"]["acceptance"], "deepseek/deepseek-flash:max")
         for role in ("task", "smol"):
-            self.assertEqual(config["modelRoles"][role], "openai-codex/gpt-6-luna:low")
+            self.assertEqual(config["modelRoles"][role], "openai-codex/gpt-6-luna:medium")
         for role in ("implementer_runinfra", "acceptance_runinfra"):
             self.assertEqual(config["modelRoles"][role], "runinfra/zai-org/GLM-5.3-Flash:max")
         self.assertEqual(config["modelRoles"]["implementer_mistral"],
