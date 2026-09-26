@@ -7,11 +7,12 @@ settled.
 
 ## Goal
 
-Publish review artifacts from either the Owner's Mac or Hermesbox through one
-CLI. An OMP agent may use that CLI when the Owner asks or when a workflow gate
-requires an update. The Owner wants a growing collection without a fixed
-artifact count or automatic expiry, and can remove an individual artifact when
-it should no longer be served.
+First publish and manage artifacts from Hermesbox through a local CLI.
+The later Mac CLI should use the same artifact semantics. An OMP agent may use
+the CLI when the Owner asks or when a workflow gate requires an update.
+The Owner wants a growing collection without a fixed artifact count or
+automatic expiry, and can remove an individual artifact when it should no
+longer be served.
 
 ## Decisions already made
 
@@ -20,7 +21,8 @@ it should no longer be served.
   CLI can delete.
 - Publishing is deliberate, not scheduled or automatic. A direct Owner request
   or an explicit workflow gate can prompt an agent to publish.
-- The CLI must work from the Mac and from Hermesbox.
+- The end-state CLI should work from the Mac and Hermesbox; the first
+  milestone is Hermesbox only.
 - Artifacts may be static sites, individual files, or directories. HTML, CSS,
   JavaScript, images and other static assets must work. Client-side application
   deep links need an `index.html` fallback. JavaScript may call external APIs
@@ -89,16 +91,26 @@ design. This is a proposal, not yet a decision.
    The exact wildcard routing and access setup require a small proof before
    selection. See [Cloudflare Access self-hosted applications](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/).
 
-Cloudflare Quick Tunnels can provide a random `trycloudflare.com` URL without a
-domain, but Cloudflare calls them a development/testing feature rather than a
-persistent publishing route. See [Quick Tunnels](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/).
+The [Cloudflare Pages local-preview guide](https://developers.cloudflare.com/pages/how-to/preview-with-cloudflare-tunnel/) uses `cloudflared tunnel --url` to expose an already-running local server at a randomly generated `trycloudflare.com` URL. It is a Quick Tunnel with a public URL, not a Cloudflare Pages deployment
+or an artifact store. The guide calls the tunnel long-running, but Cloudflare's more specific [Quick Tunnels documentation](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/) says this route is for testing/development, with no uptime SLA, a random URL, a 200-concurrent-request limit, and no SSE. It is suitable for a temporary Hermesbox proof, not the stable collection.
+
+Cloudflare Pages Direct Upload is a different service: it stores and serves uploaded assets on Cloudflare instead of Hermesbox. It gives sites their own `pages.dev` hostnames, but [Pages limits](https://developers.cloudflare.com/pages/platform/limits/) include 25 MiB per file, up to 20,000 files per site on Free, and 100 projects per account. Those limits conflict with the desired hundreds-of-megabytes files and unbounded artifact count. Its [preview deployments](https://developers.cloudflare.com/pages/configuration/preview-deployments/) are public by default and retain hash-addressed older deployments, so they do not directly match the requested latest-only removal behavior.
+
+## Hermesbox-first sequence
+
+1. Build the file/directory snapshot, naming, replacement and deletion semantics on Hermesbox, with a local CLI and a server bound to localhost. Keep artifact storage and the CLI independent of the eventual HTTPS ingress.
+2. Prove one JavaScript site and one large file on Hermesbox. A Quick
+   Tunnel may provide a temporary external smoke URL using harmless test
+   content; do not make that random, public URL the artifact identity.
+3. Choose a durable ingress before accepting the multi-artifact collection. Tailscale Serve supplies private HTTPS simply, but its one device hostname does not provide strong direct-URL origin isolation. A named Cloudflare Tunnel plus a domain, per-artifact hostnames and Access may satisfy isolation while keeping bytes on Hermesbox; DNS, wildcard routing and Access need a small real proof.
+4. Add the Mac CLI after the Hermesbox workflow is validated. It should submit to the same publishing operation rather than introduce a second storage model.
 
 ## Draft acceptance outcomes, before implementation
 
 These are proposed checks derived from the decisions above. They need review
 after the open choices are resolved; no PASS or Owner approval is claimed.
 
-1. From both authorized machines, publish a static directory containing HTML,
+1. From Hermesbox first, publish a static directory containing HTML,
    JS, CSS, images and a nested route. Its entry page, assets, JS behavior and
    direct nested-route refresh work over the selected HTTPS URL.
 2. Publish an individual binary file and a directory of files. Their content
@@ -128,7 +140,7 @@ after the open choices are resolved; no PASS or Owner approval is claimed.
 3. Is strong isolation required even for a direct artifact URL, or is a
    sandboxed catalog preview sufficient? Direct-URL isolation strongly favors
    separate origins.
-4. Choose Tailscale-only hosting or a Cloudflare domain with Access. If using
+4. Choose Tailscale-only hosting or a named Cloudflare Tunnel with Access. If using
    Cloudflare, which domain/subdomain and login identity should be used?
 5. Should the homepage list all artifact links, or should discovery happen
    through `artifact list` in the CLI only?
