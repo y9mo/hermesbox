@@ -78,7 +78,7 @@ it is not a deployment test. The role supports Debian Linux on x86_64 and aarch6
 
 | Tool | Pin | Upstream |
 |---|---|---|
-| OMP | 18.3.2 | [Release](https://github.com/can1357/oh-my-pi/releases/tag/v18.3.2) |
+| OMP | 18.4.12 | [Release](https://github.com/can1357/oh-my-pi/releases/tag/v18.4.12) |
 | Herdr | 0.9.1 | [Release](https://github.com/herdrdev/herdr/releases/tag/v0.9.1) |
 | Go | 1.26.8 | [Downloads](https://go.dev/dl/) |
 | Node | 22.23.2 | [Release files](https://nodejs.org/dist/v22.23.2/) |
@@ -383,5 +383,5 @@ Sources: [Ollama model](https://ollama.com/library/deepseek-v4.1-flash),
 
 Current requested defaults use the native `ollama-cloud` provider. GLM 5.3 uses
 `max` effort; DeepSeek has no explicit effort suffix. The three GPT-6.1 Sol
-medium roles require a registry that includes `gpt-6.1-sol`; OMP 18.3.2 does not
-currently expose it. Treat those assignments as unavailable until verified.
+medium roles require `gpt-6.1-sol` discovery, fixed in OMP 18.4.4 and included
+in the pinned 18.4.12 release. Verify the model after refreshing the catalog.
