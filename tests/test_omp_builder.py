@@ -150,19 +150,18 @@ class Helpers(unittest.TestCase):
         self.assertFalse(config["async"]["enabled"])
         self.assertEqual(config["task"]["maxConcurrency"], 2)
         for role in ("default", "plan"):
-            self.assertEqual(config["modelRoles"][role], "openai-codex/gpt-6-luna:medium")
-        for role in ("architect", "reviewer"):
-            self.assertEqual(config["modelRoles"][role],
-                             "openai-codex/gpt-6-sol:medium")
+            self.assertEqual(config["modelRoles"][role], "ollama-cloud/deepseek-v4.1-flash")
+        self.assertEqual(config["modelRoles"]["architect"], "ollama-cloud/glm-5.3:max")
+        self.assertEqual(config["modelRoles"]["reviewer"], "openai-codex/gpt-6-sol:medium")
         self.assertEqual(config["modelRoles"]["architect_astra"],
-                         "openai-codex/gpt-6-astra:low")
+                         "openai-codex/gpt-6.1-sol:medium")
         self.assertEqual(config["modelRoles"]["reviewer_astra"],
-                         "openai-codex/gpt-6-astra:low")
+                         "openai-codex/gpt-6.1-sol:medium")
         self.assertEqual(config["modelRoles"]["designer"],
-                         "openai-codex/gpt-6-astra:low")
-        self.assertEqual(config["modelRoles"]["implementer"], "ollama/deepseek-v4.1-flash:cloud")
+                         "openai-codex/gpt-6.1-sol:medium")
+        self.assertEqual(config["modelRoles"]["implementer"], "ollama-cloud/glm-5.3:max")
         self.assertEqual(config["modelRoles"]["implementer_openai"], "openai-codex/gpt-6-luna:medium")
-        self.assertEqual(config["modelRoles"]["acceptance"], "deepseek/deepseek-flash:max")
+        self.assertEqual(config["modelRoles"]["acceptance"], "ollama-cloud/deepseek-v4.1-flash")
         for role in ("task", "smol"):
             self.assertEqual(config["modelRoles"][role], "openai-codex/gpt-6-luna:medium")
         for role in ("implementer_runinfra", "acceptance_runinfra"):

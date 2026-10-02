@@ -213,17 +213,17 @@ an automatic restart to reload credentials or resume acceptance safely.
 
 | Role | Alias | Default model |
 |---|---|---|
-| Main coordinator | default / plan | openai-codex/gpt-6-luna:medium |
-| Architect (default) | architect | openai-codex/gpt-6-sol:medium |
-| Architect (alternative) | architect-astra | openai-codex/gpt-6-astra:low |
+| Main coordinator | default / plan | ollama-cloud/deepseek-v4.1-flash |
+| Architect (default) | architect | ollama-cloud/glm-5.3:max |
+| Architect (alternative) | architect-astra | openai-codex/gpt-6.1-sol:medium |
 | Reviewer | reviewer | openai-codex/gpt-6-sol:medium |
-| Reviewer Astra (advisory second opinion) | reviewer-astra | openai-codex/gpt-6-astra:low |
-| Designer | designer | openai-codex/gpt-6-astra:low |
-| Implementer (default) | implementer-ollama | ollama/deepseek-v4.1-flash:cloud |
+| Reviewer Astra (advisory second opinion) | reviewer-astra | openai-codex/gpt-6.1-sol:medium |
+| Designer | designer | openai-codex/gpt-6.1-sol:medium |
+| Implementer (default) | implementer-ollama | ollama-cloud/glm-5.3:max |
 | Implementer (alternative) | implementer-openai | openai-codex/gpt-6-luna:medium |
 | Implementer (alternative) | implementer-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
 | Implementer (alternative) | implementer-mistral | mistral/zai-glm-5-3:medium |
-| Acceptance (default) | acceptance-deepseek | deepseek/deepseek-flash:max |
+| Acceptance (default) | acceptance-deepseek | ollama-cloud/deepseek-v4.1-flash |
 | Acceptance (alternative) | acceptance-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
 
 The coordinator's `default` and `plan` roles apply to new model selections. A
@@ -380,3 +380,8 @@ roles continue using Luna medium.
 Sources: [Ollama model](https://ollama.com/library/deepseek-v4.1-flash),
 [cloud authentication](https://docs.ollama.com/api/authentication),
 [OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility).
+
+Current requested defaults use the native `ollama-cloud` provider. GLM 5.3 uses
+`max` effort; DeepSeek has no explicit effort suffix. The three GPT-6.1 Sol
+medium roles require a registry that includes `gpt-6.1-sol`; OMP 18.3.2 does not
+currently expose it. Treat those assignments as unavailable until verified.
