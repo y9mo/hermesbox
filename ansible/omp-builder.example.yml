@@ -8,8 +8,12 @@ omp_builder_architect_astra_model: openai-codex/gpt-6-astra:low
 omp_builder_reviewer_model: openai-codex/gpt-6-sol:medium
 omp_builder_reviewer_astra_model: openai-codex/gpt-6-astra:low
 omp_builder_designer_model: openai-codex/gpt-6-astra:low
-omp_builder_implementer_model: openai-codex/gpt-6-luna:medium
+omp_builder_implementer_model: ollama/deepseek-v4.1-flash:cloud
+omp_builder_openai_implementer_model: openai-codex/gpt-6-luna:medium
 omp_builder_acceptance_model: deepseek/deepseek-flash:max
 omp_builder_runinfra_implementer_model: runinfra/zai-org/GLM-5.3-Flash:max
 omp_builder_runinfra_acceptance_model: runinfra/zai-org/GLM-5.3-Flash:max
 omp_builder_mistral_implementer_model: mistral/zai-glm-5-3:medium
+
+# Required for Ollama Cloud: set the real password-store entry before deploying.
+omp_builder_ollama_key_passwordstore_entry: y9mo/ollama/api

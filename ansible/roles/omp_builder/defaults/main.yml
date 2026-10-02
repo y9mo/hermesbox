@@ -8,6 +8,12 @@ omp_builder_github_token_passwordstore_entry: y9mo/github/pat/hermesbox
 omp_builder_runinfra_key_passwordstore_entry: y9mo/runinfra/apikey
 omp_builder_deepseek_key_passwordstore_entry: y9mo/deepseek/hermes
 omp_builder_mistral_key_passwordstore_entry: y9mo/mistral/hermes
+# Set this entry (or supply omp_builder_ollama_key securely) before deployment.
+omp_builder_ollama_key_passwordstore_entry: y9mo/ollama/api
+omp_builder_ollama_key: >-
+  {{ lookup('community.general.passwordstore',
+            omp_builder_ollama_key_passwordstore_entry, missing='error')
+     if omp_builder_ollama_key_passwordstore_entry | length > 0 else '' }}
 omp_builder_github_token: >-
   {{ lookup('community.general.passwordstore',
             omp_builder_github_token_passwordstore_entry, missing='error') }}
@@ -26,7 +32,8 @@ omp_builder_architect_astra_model: openai-codex/gpt-6-astra:low
 omp_builder_reviewer_model: openai-codex/gpt-6-sol:medium
 omp_builder_reviewer_astra_model: openai-codex/gpt-6-astra:low
 omp_builder_designer_model: openai-codex/gpt-6-astra:low
-omp_builder_implementer_model: openai-codex/gpt-6-luna:medium
+omp_builder_implementer_model: ollama/deepseek-v4.1-flash:cloud
+omp_builder_openai_implementer_model: openai-codex/gpt-6-luna:medium
 omp_builder_acceptance_model: deepseek/deepseek-flash:max
 omp_builder_runinfra_implementer_model: runinfra/zai-org/GLM-5.3-Flash:max
 omp_builder_runinfra_acceptance_model: runinfra/zai-org/GLM-5.3-Flash:max

@@ -219,7 +219,8 @@ an automatic restart to reload credentials or resume acceptance safely.
 | Reviewer | reviewer | openai-codex/gpt-6-sol:medium |
 | Reviewer Astra (advisory second opinion) | reviewer-astra | openai-codex/gpt-6-astra:low |
 | Designer | designer | openai-codex/gpt-6-astra:low |
-| Implementer (default) | implementer-openai | openai-codex/gpt-6-luna:medium |
+| Implementer (default) | implementer-ollama | ollama/deepseek-v4.1-flash:cloud |
+| Implementer (alternative) | implementer-openai | openai-codex/gpt-6-luna:medium |
 | Implementer (alternative) | implementer-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
 | Implementer (alternative) | implementer-mistral | mistral/zai-glm-5-3:medium |
 | Acceptance (default) | acceptance-deepseek | deepseek/deepseek-flash:max |
@@ -361,3 +362,21 @@ Sources checked against the pinned OMP release: [agent roles/discovery](https://
 [Mistral chat completions API](https://docs.mistral.ai/api/),
 [Herdr remote sessions](https://herdr.dev/docs/persistence-remote/),
 [Herdr integration](https://herdr.dev/docs/integrations/).
+
+### Ollama Cloud implementer
+
+The default `implementer-ollama` uses `deepseek-v4.1-flash:cloud` through
+`https://ollama.com/v1`, with text and image input and a one-million-token
+context. Its configured output cap is conservatively 32,768 tokens; this is
+a client limit, not a claim about the provider's maximum. No numeric effort
+suffix is assigned because the cloud effort interface has not been verified.
+Set `omp_builder_ollama_key_passwordstore_entry` to the existing password-store
+entry, or securely supply `omp_builder_ollama_key`, before reapplying Ansible.
+The credential is exported as `OLLAMA_API_KEY`. Verify an actual child task
+and image input after deployment before relying on this default.
+The OpenAI implementer remains available explicitly; generic `task` and `smol`
+roles continue using Luna medium.
+
+Sources: [Ollama model](https://ollama.com/library/deepseek-v4.1-flash),
+[cloud authentication](https://docs.ollama.com/api/authentication),
+[OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility).

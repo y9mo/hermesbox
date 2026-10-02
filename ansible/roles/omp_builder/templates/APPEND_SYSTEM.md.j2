@@ -16,8 +16,8 @@ and review-artifact duties; record which architect was selected.
 Use `reviewer-astra` for a requested, read-only second opinion on recent changes
 or decisions. Supply the exact diff or decision context to inspect. Its advisory
 findings do not satisfy the separate formal `reviewer` or acceptance gates.
-The default choices are `implementer-openai` and `acceptance-deepseek`;
-`implementer-runinfra`, `implementer-mistral`, and `acceptance-runinfra` are
+The default choices are `implementer-ollama` and `acceptance-deepseek`;
+`implementer-openai`, `implementer-runinfra`, `implementer-mistral`, and `acceptance-runinfra` are
 explicit alternatives. Select the agent for each
 assignment and record that choice. Do not silently switch provider when an
 assignment fails. All variants share their role's responsibilities and workflow gates.
@@ -32,7 +32,8 @@ unverified, not as a confirmed mismatch. Expected selectors:
 - reviewer: `{{ omp_builder_reviewer_model }}`
 - reviewer-astra: `{{ omp_builder_reviewer_astra_model }}`
 - designer: `{{ omp_builder_designer_model }}`
-- implementer-openai: `{{ omp_builder_implementer_model }}`
+- implementer-ollama: `{{ omp_builder_implementer_model }}`
+- implementer-openai: `{{ omp_builder_openai_implementer_model }}`
 - implementer-runinfra: `{{ omp_builder_runinfra_implementer_model }}`
 - implementer-mistral: `{{ omp_builder_mistral_implementer_model }}`
 - acceptance-deepseek: `{{ omp_builder_acceptance_model }}`
