@@ -150,7 +150,7 @@ class Helpers(unittest.TestCase):
         self.assertFalse(config["async"]["enabled"])
         self.assertEqual(config["task"]["maxConcurrency"], 2)
         for role in ("default", "plan"):
-            self.assertEqual(config["modelRoles"][role], "ollama-cloud/deepseek-v4.1-flash")
+            self.assertEqual(config["modelRoles"][role], "ollama-cloud/deepseek-v4.1-flash:max")
         self.assertEqual(config["modelRoles"]["architect"], "ollama-cloud/glm-5.3:max")
         self.assertEqual(config["modelRoles"]["reviewer"], "openai-codex/gpt-6-sol:medium")
         self.assertEqual(config["modelRoles"]["architect_astra"],
@@ -159,15 +159,15 @@ class Helpers(unittest.TestCase):
                          "openai-codex/gpt-6.1-sol:medium")
         self.assertEqual(config["modelRoles"]["designer"],
                          "openai-codex/gpt-6.1-sol:medium")
-        self.assertEqual(config["modelRoles"]["implementer"], "ollama-cloud/glm-5.3:max")
-        self.assertEqual(config["modelRoles"]["implementer_openai"], "openai-codex/gpt-6-luna:medium")
-        self.assertEqual(config["modelRoles"]["acceptance"], "ollama-cloud/deepseek-v4.1-flash")
+        self.assertEqual(config["modelRoles"]["implementer"], "ollama-cloud/deepseek-v4.1-flash:max")
+        self.assertEqual(config["modelRoles"]["implementer_openai"], "openai-codex/gpt-6.1-sol:medium")
+        self.assertEqual(config["modelRoles"]["acceptance"], "ollama-cloud/deepseek-v4.1-flash:max")
         for role in ("task", "smol"):
-            self.assertEqual(config["modelRoles"][role], "openai-codex/gpt-6-luna:medium")
+            self.assertEqual(config["modelRoles"][role], "ollama-cloud/deepseek-v4.1-flash:max")
         for role in ("implementer_runinfra", "acceptance_runinfra"):
-            self.assertEqual(config["modelRoles"][role], "runinfra/zai-org/GLM-5.3-Flash:max")
+            self.assertEqual(config["modelRoles"][role], "runinfra/deepseek-v4-1-flash:max")
         self.assertEqual(config["modelRoles"]["implementer_mistral"],
-                         "mistral/zai-glm-5-3:medium")
+                         "mistral/zai-glm-5-3:xhigh")
         models = yaml.safe_load(self.render("models.yml").read_text())
         ollama = models["providers"]["ollama"]
         self.assertEqual(ollama["baseUrl"], "https://ollama.com/v1")

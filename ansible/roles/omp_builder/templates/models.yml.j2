@@ -54,6 +54,19 @@ providers:
         compat:
           supportsReasoningEffort: true
           maxTokensField: max_tokens
+      - id: deepseek-v4-1-flash
+        name: DeepSeek V4.1 Flash (RunInfra)
+        reasoning: true
+        thinking:
+          mode: effort
+          minLevel: low
+          maxLevel: max
+        input: [text]
+        contextWindow: 1048576
+        maxTokens: 1048576
+        compat:
+          supportsReasoningEffort: true
+          maxTokensField: max_tokens
   mistral:
     baseUrl: https://api.mistral.ai/v1
     api: openai-completions

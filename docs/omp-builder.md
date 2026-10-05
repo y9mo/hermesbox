@@ -213,18 +213,18 @@ an automatic restart to reload credentials or resume acceptance safely.
 
 | Role | Alias | Default model |
 |---|---|---|
-| Main coordinator | default / plan | ollama-cloud/deepseek-v4.1-flash |
+| Main coordinator | default / plan | ollama-cloud/deepseek-v4.1-flash:max |
 | Architect (default) | architect | ollama-cloud/glm-5.3:max |
 | Architect (alternative) | architect-astra | openai-codex/gpt-6.1-sol:medium |
 | Reviewer | reviewer | openai-codex/gpt-6-sol:medium |
 | Reviewer Astra (advisory second opinion) | reviewer-astra | openai-codex/gpt-6.1-sol:medium |
 | Designer | designer | openai-codex/gpt-6.1-sol:medium |
-| Implementer (default) | implementer-ollama | ollama-cloud/glm-5.3:max |
-| Implementer (alternative) | implementer-openai | openai-codex/gpt-6-luna:medium |
-| Implementer (alternative) | implementer-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
-| Implementer (alternative) | implementer-mistral | mistral/zai-glm-5-3:medium |
-| Acceptance (default) | acceptance-deepseek | ollama-cloud/deepseek-v4.1-flash |
-| Acceptance (alternative) | acceptance-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
+| Implementer (default) | implementer-ollama | ollama-cloud/deepseek-v4.1-flash:max |
+| Implementer (alternative) | implementer-openai | openai-codex/gpt-6.1-sol:medium |
+| Implementer (alternative) | implementer-runinfra | runinfra/deepseek-v4-1-flash:max |
+| Implementer (alternative) | implementer-mistral | mistral/zai-glm-5-3:xhigh |
+| Acceptance (default) | acceptance-deepseek | ollama-cloud/deepseek-v4.1-flash:max |
+| Acceptance (alternative) | acceptance-runinfra | runinfra/deepseek-v4-1-flash:max |
 
 The coordinator's `default` and `plan` roles apply to new model selections. A
 resumed session can retain its previously selected active model. In that session,
@@ -385,3 +385,7 @@ Current requested defaults use the native `ollama-cloud` provider. GLM 5.3 uses
 `max` effort; DeepSeek has no explicit effort suffix. The three GPT-6.1 Sol
 medium roles require `gpt-6.1-sol` discovery, fixed in OMP 18.4.4 and included
 in the pinned 18.4.12 release. Verify the model after refreshing the catalog.
+
+Generic `task` and `smol` select `ollama-cloud/deepseek-v4.1-flash:max`.
+RunInfra DeepSeek uses `deepseek-v4-1-flash` with text input and max effort.
+Mistral GLM 5.3 uses `xhigh`, its highest advertised effort.

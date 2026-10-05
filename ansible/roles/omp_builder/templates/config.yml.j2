@@ -13,8 +13,8 @@ modelRoles:
   implementer_runinfra: {{ omp_builder_runinfra_implementer_model | to_json }}
   implementer_mistral: {{ omp_builder_mistral_implementer_model | to_json }}
   acceptance_runinfra: {{ omp_builder_runinfra_acceptance_model | to_json }}
-  task: {{ omp_builder_openai_implementer_model | to_json }}
-  smol: {{ omp_builder_openai_implementer_model | to_json }}
+  task: {{ omp_builder_implementer_model | to_json }}
+  smol: {{ omp_builder_implementer_model | to_json }}
 task:
   maxConcurrency: 2
   agentModelOverrides:
