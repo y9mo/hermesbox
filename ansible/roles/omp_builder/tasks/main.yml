@@ -6,6 +6,13 @@
       - ansible_facts.architecture in omp_builder_platforms
     fail_msg: This role supports Debian Linux on x86_64 and aarch64.
 
+- name: Require Ollama Cloud credentials for the default implementer
+  ansible.builtin.assert:
+    that:
+      - omp_builder_ollama_key | length > 0
+    fail_msg: Set omp_builder_ollama_key_passwordstore_entry or securely supply omp_builder_ollama_key.
+  no_log: true
+
 - name: Install build and browser dependencies
   ansible.builtin.apt:
     name:
@@ -222,7 +229,8 @@
     omp_builder_agent_provider: "{{ item.provider }}"
     omp_builder_agent_role: "{{ item.role }}"
   loop:
-    - {kind: implementer, name: implementer-openai, provider: OpenAI Codex, role: implementer}
+    - {kind: implementer, name: implementer-ollama, provider: Ollama Cloud, role: implementer}
+    - {kind: implementer, name: implementer-openai, provider: OpenAI Codex, role: implementer_openai}
     - {kind: implementer, name: implementer-runinfra, provider: RunInfra, role: implementer_runinfra}
     - {kind: implementer, name: implementer-mistral, provider: Mistral, role: implementer_mistral}
     - {kind: acceptance, name: acceptance-deepseek, provider: DeepSeek, role: acceptance}
@@ -242,7 +250,7 @@
     group: "{{ omp_builder_user }}"
     mode: '0600'
 
-- name: Provision GitHub, RunInfra, DeepSeek and Mistral credentials from the controller password store
+- name: Provision GitHub, RunInfra, DeepSeek, Ollama and Mistral credentials from the controller password store
   ansible.builtin.template:
     src: credentials.env.j2
     dest: "{{ omp_builder_config_dir }}/credentials.env"

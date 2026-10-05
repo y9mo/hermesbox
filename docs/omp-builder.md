@@ -78,7 +78,7 @@ it is not a deployment test. The role supports Debian Linux on x86_64 and aarch6
 
 | Tool | Pin | Upstream |
 |---|---|---|
-| OMP | 18.3.2 | [Release](https://github.com/can1357/oh-my-pi/releases/tag/v18.3.2) |
+| OMP | 18.4.12 | [Release](https://github.com/can1357/oh-my-pi/releases/tag/v18.4.12) |
 | Herdr | 0.9.1 | [Release](https://github.com/herdrdev/herdr/releases/tag/v0.9.1) |
 | Go | 1.26.8 | [Downloads](https://go.dev/dl/) |
 | Node | 22.23.2 | [Release files](https://nodejs.org/dist/v22.23.2/) |
@@ -213,20 +213,36 @@ an automatic restart to reload credentials or resume acceptance safely.
 
 | Role | Alias | Default model |
 |---|---|---|
-| Main coordinator | default / plan | openai-codex/gpt-6-luna:medium |
-| Architect | architect | openai-codex/gpt-6-sol:medium |
-| Reviewer | reviewer | openai-codex/gpt-6-sol:medium |
-| Designer | designer | openai-codex/gpt-6-astra:low |
-| Implementer (default) | implementer-openai | openai-codex/gpt-6-luna:medium |
-| Implementer (alternative) | implementer-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
-| Implementer (alternative) | implementer-mistral | mistral/zai-glm-5-3:medium |
-| Acceptance (default) | acceptance-deepseek | deepseek/deepseek-flash:max |
-| Acceptance (alternative) | acceptance-runinfra | runinfra/zai-org/GLM-5.3-Flash:max |
+| Main coordinator | default / plan | ollama-cloud/deepseek-v4.1-flash:max |
+| Architect (default) | architect | ollama-cloud/glm-5.3:max |
+| Architect (alternative) | architect-astra | openai-codex/gpt-6.1-sol:medium |
+| Reviewer | reviewer | mistral/zai-glm-5-3:xhigh |
+| Reviewer Astra (advisory second opinion) | reviewer-astra | openai-codex/gpt-6.1-sol:medium |
+| Designer | designer | openai-codex/gpt-6.1-sol:medium |
+| Implementer (default) | implementer-ollama | ollama-cloud/deepseek-v4.1-flash:max |
+| Implementer (alternative) | implementer-openai | openai-codex/gpt-6.1-sol:medium |
+| Implementer (alternative) | implementer-runinfra | runinfra/deepseek-v4-1-flash:max |
+| Implementer (alternative) | implementer-mistral | mistral/zai-glm-5-3:xhigh |
+| Acceptance (default) | acceptance-deepseek | ollama-cloud/deepseek-v4.1-flash:max |
+| Acceptance (alternative) | acceptance-runinfra | runinfra/deepseek-v4-1-flash:max |
 
 The coordinator's `default` and `plan` roles apply to new model selections. A
 resumed session can retain its previously selected active model. In that session,
 use `/model` to select GPT-6 Luna at medium effort, then verify the status line
 before assigning more work.
+
+Select `architect-astra` explicitly when GPT-6 Astra should handle the full
+architect assignment. It follows the same repository approval gates as
+`architect`; its model selector is GPT-6 Astra at low effort.
+
+Use `reviewer-astra` when the operator requests a quick second opinion on a
+supplied diff or decision context. It is read-only and advisory; the required
+independent `reviewer` and acceptance steps remain separate. OMP reloads
+settings and discovers agents before each task dispatch, so newly installed
+named agents are available to an already-running session on its next task
+call. The main session's appended coordinator prompt is loaded at launch;
+restart and resume
+that session when its prompt text itself must be refreshed.
 
 Choose an agent name for each implementation and acceptance assignment. DeepSeek
 is the default; select a RunInfra or Mistral variant explicitly when it is available. Never
@@ -246,7 +262,11 @@ them without adding deployment files to a project. OMP project agent files take
 precedence: inspect any `.omp/agents` in the active repository and reconcile
 same-name definitions before starting. Project config, CLI/runtime overrides and
 model fallback also need live inspection. Verify the *actual* provider/model and
-effort in Agent Hub, not just the requested selector. Do not proceed on a mismatch.
+effort for each child, not just the requested selector. Agent Hub shows the
+resolved model and activity, but its roster and task results can omit effort.
+Inspect the focused child's status line or its session JSONL `model_change`
+and `thinking_level_change` records to establish the effective values.
+Report unavailable effort evidence as unverified; do not proceed on a mismatch.
 The coordinator append prompt scopes coordination to the main session; children
 retain their specialist assignment. A project `APPEND_SYSTEM.md` can override the
 user file: if present, explicitly launch with
@@ -288,9 +308,9 @@ Complete and record these host checks; local unit/syntax tests do not establish 
    Catalog presence is not authentication or inference. Make a small live request
    with a harmless read/tool call on each selected provider, then dispatch all eight
    named specialists on harmless assignments. Check the effective model, medium
-   effort for architecture/review, low effort for design, max effort for the main
-   coordinator and DeepSeek/RunInfra implementation and acceptance, and medium
-   effort for Mistral implementation,
+   effort for the main coordinator, architecture/review, and OpenAI
+   implementation; low effort for design; max effort for DeepSeek/RunInfra
+   implementation and acceptance; and medium effort for Mistral implementation,
    streaming, tools, discovery, and unintended fallback. Run a synthetic
    browser/image smoke with each available acceptance agent. Treat unavailable
    models as BLOCKED for their selected agent; do not silently substitute another.
@@ -342,3 +362,30 @@ Sources checked against the pinned OMP release: [agent roles/discovery](https://
 [Mistral chat completions API](https://docs.mistral.ai/api/),
 [Herdr remote sessions](https://herdr.dev/docs/persistence-remote/),
 [Herdr integration](https://herdr.dev/docs/integrations/).
+
+### Ollama Cloud implementer
+
+The default `implementer-ollama` uses `deepseek-v4.1-flash:cloud` through
+`https://ollama.com/v1`, with text and image input and a one-million-token
+context. Its configured output cap is conservatively 32,768 tokens; this is
+a client limit, not a claim about the provider's maximum. No numeric effort
+suffix is assigned because the cloud effort interface has not been verified.
+Set `omp_builder_ollama_key_passwordstore_entry` to the existing password-store
+entry, or securely supply `omp_builder_ollama_key`, before reapplying Ansible.
+The credential is exported as `OLLAMA_API_KEY`. Verify an actual child task
+and image input after deployment before relying on this default.
+The OpenAI implementer remains available explicitly; generic `task` and `smol`
+roles continue using Luna medium.
+
+Sources: [Ollama model](https://ollama.com/library/deepseek-v4.1-flash),
+[cloud authentication](https://docs.ollama.com/api/authentication),
+[OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility).
+
+Current requested defaults use the native `ollama-cloud` provider. GLM 5.3 uses
+`max` effort; DeepSeek has no explicit effort suffix. The three GPT-6.1 Sol
+medium roles require `gpt-6.1-sol` discovery, fixed in OMP 18.4.4 and included
+in the pinned 18.4.12 release. Verify the model after refreshing the catalog.
+
+Generic `task` and `smol` select `ollama-cloud/deepseek-v4.1-flash:max`.
+RunInfra DeepSeek uses `deepseek-v4-1-flash` with text input and max effort.
+Mistral GLM 5.3 uses `xhigh`, its highest advertised effort.

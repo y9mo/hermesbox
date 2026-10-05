@@ -43,6 +43,7 @@ class Helpers(unittest.TestCase):
                         "os.environ['RUNINFRA_GATEWAY_KEY'],"
                         "os.environ['DEEPSEEK_API_KEY'],"
                         "os.environ['MISTRAL_API_KEY'],"
+                        "os.environ['OLLAMA_API_KEY'],"
                         "os.environ['PI_CONFIG_FILES']]))\n")
         stub.chmod(0o700)
 
@@ -67,22 +68,25 @@ class Helpers(unittest.TestCase):
         runinfra_key = "runinfra spaces ' quotes $HOME `touch " + str(marker) + "` $(false)"
         deepseek_key = "deepseek spaces ' quotes $HOME `touch " + str(marker) + "` $(false)"
         mistral_key = "mistral spaces ' quotes $HOME `touch " + str(marker) + "` $(false)"
+        ollama_key = "ollama spaces ' quotes $HOME `touch " + str(marker) + "` $(false)"
         self.render("credentials.env", self.config / "credentials.env",
                     omp_builder_github_token=github_token,
                     omp_builder_runinfra_key=runinfra_key,
                     omp_builder_deepseek_key=deepseek_key,
-                    omp_builder_mistral_key=mistral_key)
+                    omp_builder_mistral_key=mistral_key,
+                    omp_builder_ollama_key=ollama_key)
         launcher = self.render("omp-builder-launch")
         args = ["models", "find", "a model", "--json"]
         result = subprocess.run(["bash", "-x", launcher, *args], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout),
-                         [args, github_token, runinfra_key, deepseek_key, mistral_key,
+                         [args, github_token, runinfra_key, deepseek_key, mistral_key, ollama_key,
                           str(self.config / "config.yml")])
         self.assertNotIn(github_token, result.stderr)
         self.assertNotIn(runinfra_key, result.stderr)
         self.assertNotIn(deepseek_key, result.stderr)
         self.assertNotIn(mistral_key, result.stderr)
+        self.assertNotIn(ollama_key, result.stderr)
         self.assertFalse(marker.exists())
 
     def test_role_aliases_resolve_through_managed_config(self):
@@ -97,8 +101,26 @@ class Helpers(unittest.TestCase):
                          "y9mo/mistral/hermes")
         self.values.update(defaults)
         config = yaml.safe_load(self.render("config.yml").read_text())
+        coordinator_prompt = self.render("APPEND_SYSTEM.md").read_text()
+        prompt_roles = (
+            ("main coordinator (default/plan)", "default"),
+            ("architect", "architect"),
+            ("architect-astra", "architect_astra"),
+            ("reviewer", "reviewer"),
+            ("reviewer-astra", "reviewer_astra"),
+            ("designer", "designer"),
+            ("implementer-ollama", "implementer"),
+            ("implementer-openai", "implementer_openai"),
+            ("implementer-runinfra", "implementer_runinfra"),
+            ("implementer-mistral", "implementer_mistral"),
+            ("acceptance-deepseek", "acceptance"),
+            ("acceptance-runinfra", "acceptance_runinfra"),
+        )
+        for label, role in prompt_roles:
+            self.assertIn(f"- {label}: `{config['modelRoles'][role]}`", coordinator_prompt)
         agents = {file.stem: file.read_text() for file in (ROLE / "files/agents").glob("*.md")}
-        variants = (("implementer", "openai", "implementer"),
+        variants = (("implementer", "ollama", "implementer"),
+                    ("implementer", "openai", "implementer_openai"),
                     ("implementer", "runinfra", "implementer_runinfra"),
                     ("implementer", "mistral", "implementer_mistral"),
                     ("acceptance", "deepseek", "acceptance"),
@@ -116,6 +138,10 @@ class Helpers(unittest.TestCase):
             self.assertIn(alias, config["modelRoles"])
             self.assertEqual(config["task"]["agentModelOverrides"][frontmatter["name"]], "@" + alias)
             self.assertTrue(frontmatter["blocking"])
+        self.assertEqual(agents["architect"].split("---", 2)[2],
+                         agents["architect-astra"].split("---", 2)[2])
+        astra_frontmatter = yaml.safe_load(agents["reviewer-astra"].split("---")[1])
+        self.assertEqual(astra_frontmatter["tools"], ["read", "grep", "glob"])
         acceptance_deepseek = agents["acceptance-deepseek"].split("---", 2)[2]
         acceptance_runinfra = agents["acceptance-runinfra"].split("---", 2)[2]
         self.assertEqual(acceptance_deepseek, acceptance_runinfra)
@@ -124,21 +150,30 @@ class Helpers(unittest.TestCase):
         self.assertFalse(config["async"]["enabled"])
         self.assertEqual(config["task"]["maxConcurrency"], 2)
         for role in ("default", "plan"):
-            self.assertEqual(config["modelRoles"][role], "openai-codex/gpt-6-luna:medium")
-        for role in ("architect", "reviewer"):
-            self.assertEqual(config["modelRoles"][role],
-                             "openai-codex/gpt-6-sol:medium")
+            self.assertEqual(config["modelRoles"][role], "ollama-cloud/deepseek-v4.1-flash:max")
+        self.assertEqual(config["modelRoles"]["architect"], "ollama-cloud/glm-5.3:max")
+        self.assertEqual(config["modelRoles"]["reviewer"], "mistral/zai-glm-5-3:xhigh")
+        self.assertEqual(config["modelRoles"]["architect_astra"],
+                         "openai-codex/gpt-6.1-sol:medium")
+        self.assertEqual(config["modelRoles"]["reviewer_astra"],
+                         "openai-codex/gpt-6.1-sol:medium")
         self.assertEqual(config["modelRoles"]["designer"],
-                         "openai-codex/gpt-6-astra:low")
-        self.assertEqual(config["modelRoles"]["implementer"], "openai-codex/gpt-6-luna:medium")
-        self.assertEqual(config["modelRoles"]["acceptance"], "deepseek/deepseek-flash:max")
+                         "openai-codex/gpt-6.1-sol:medium")
+        self.assertEqual(config["modelRoles"]["implementer"], "ollama-cloud/deepseek-v4.1-flash:max")
+        self.assertEqual(config["modelRoles"]["implementer_openai"], "openai-codex/gpt-6.1-sol:medium")
+        self.assertEqual(config["modelRoles"]["acceptance"], "ollama-cloud/deepseek-v4.1-flash:max")
         for role in ("task", "smol"):
-            self.assertEqual(config["modelRoles"][role], "openai-codex/gpt-6-luna:medium")
+            self.assertEqual(config["modelRoles"][role], "ollama-cloud/deepseek-v4.1-flash:max")
         for role in ("implementer_runinfra", "acceptance_runinfra"):
-            self.assertEqual(config["modelRoles"][role], "runinfra/zai-org/GLM-5.3-Flash:max")
+            self.assertEqual(config["modelRoles"][role], "runinfra/deepseek-v4-1-flash:max")
         self.assertEqual(config["modelRoles"]["implementer_mistral"],
-                         "mistral/zai-glm-5-3:medium")
+                         "mistral/zai-glm-5-3:xhigh")
         models = yaml.safe_load(self.render("models.yml").read_text())
+        ollama = models["providers"]["ollama"]
+        self.assertEqual(ollama["baseUrl"], "https://ollama.com/v1")
+        self.assertEqual(ollama["apiKey"], "OLLAMA_API_KEY")
+        self.assertEqual(ollama["models"][0]["id"], "deepseek-v4.1-flash:cloud")
+        self.assertEqual(ollama["models"][0]["input"], ["text", "image"])
         deepseek = models["providers"]["deepseek"]
         self.assertEqual(deepseek["apiKey"], "DEEPSEEK_API_KEY")
         self.assertEqual(deepseek["models"][0]["id"], "deepseek-flash")

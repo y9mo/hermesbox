@@ -1,4 +1,19 @@
 providers:
+  ollama:
+    baseUrl: https://ollama.com/v1
+    api: openai-completions
+    apiKey: OLLAMA_API_KEY
+    models:
+      - id: deepseek-v4.1-flash:cloud
+        name: DeepSeek V4.1 Flash (Ollama Cloud)
+        reasoning: true
+        input: [text, image]
+        contextWindow: 1000000
+        maxTokens: 32768
+        compat:
+          supportsDeveloperRole: false
+          supportsReasoningEffort: false
+          maxTokensField: max_tokens
   deepseek:
     baseUrl: https://api.deepseek.com
     api: openai-completions
@@ -36,6 +51,19 @@ providers:
         input: [text, image]
         contextWindow: 1048576
         maxTokens: 32768
+        compat:
+          supportsReasoningEffort: true
+          maxTokensField: max_tokens
+      - id: deepseek-v4-1-flash
+        name: DeepSeek V4.1 Flash (RunInfra)
+        reasoning: true
+        thinking:
+          mode: effort
+          minLevel: low
+          maxLevel: max
+        input: [text]
+        contextWindow: 1048576
+        maxTokens: 1048576
         compat:
           supportsReasoningEffort: true
           maxTokensField: max_tokens

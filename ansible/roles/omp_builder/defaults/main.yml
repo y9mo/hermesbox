@@ -8,6 +8,12 @@ omp_builder_github_token_passwordstore_entry: y9mo/github/pat/hermesbox
 omp_builder_runinfra_key_passwordstore_entry: y9mo/runinfra/apikey
 omp_builder_deepseek_key_passwordstore_entry: y9mo/deepseek/hermes
 omp_builder_mistral_key_passwordstore_entry: y9mo/mistral/hermes
+# Set this entry (or supply omp_builder_ollama_key securely) before deployment.
+omp_builder_ollama_key_passwordstore_entry: y9mo/ollama/api
+omp_builder_ollama_key: >-
+  {{ lookup('community.general.passwordstore',
+            omp_builder_ollama_key_passwordstore_entry, missing='error')
+     if omp_builder_ollama_key_passwordstore_entry | length > 0 else '' }}
 omp_builder_github_token: >-
   {{ lookup('community.general.passwordstore',
             omp_builder_github_token_passwordstore_entry, missing='error') }}
@@ -20,24 +26,27 @@ omp_builder_deepseek_key: >-
 omp_builder_mistral_key: >-
   {{ lookup('community.general.passwordstore',
             omp_builder_mistral_key_passwordstore_entry, missing='error') }}
-omp_builder_coordinator_model: openai-codex/gpt-6-luna:medium
-omp_builder_architect_model: openai-codex/gpt-6-sol:medium
-omp_builder_reviewer_model: openai-codex/gpt-6-sol:medium
-omp_builder_designer_model: openai-codex/gpt-6-astra:low
-omp_builder_implementer_model: openai-codex/gpt-6-luna:medium
-omp_builder_acceptance_model: deepseek/deepseek-flash:max
-omp_builder_runinfra_implementer_model: runinfra/zai-org/GLM-5.3-Flash:max
-omp_builder_runinfra_acceptance_model: runinfra/zai-org/GLM-5.3-Flash:max
-omp_builder_mistral_implementer_model: mistral/zai-glm-5-3:medium
+omp_builder_coordinator_model: ollama-cloud/deepseek-v4.1-flash:max
+omp_builder_architect_model: ollama-cloud/glm-5.3:max
+omp_builder_architect_astra_model: openai-codex/gpt-6.1-sol:medium
+omp_builder_reviewer_model: mistral/zai-glm-5-3:xhigh
+omp_builder_reviewer_astra_model: openai-codex/gpt-6.1-sol:medium
+omp_builder_designer_model: openai-codex/gpt-6.1-sol:medium
+omp_builder_implementer_model: ollama-cloud/deepseek-v4.1-flash:max
+omp_builder_openai_implementer_model: openai-codex/gpt-6.1-sol:medium
+omp_builder_acceptance_model: ollama-cloud/deepseek-v4.1-flash:max
+omp_builder_runinfra_implementer_model: runinfra/deepseek-v4-1-flash:max
+omp_builder_runinfra_acceptance_model: runinfra/deepseek-v4-1-flash:max
+omp_builder_mistral_implementer_model: mistral/zai-glm-5-3:xhigh
 # Upgrade version and checksums together, then deliberately restart running sessions.
-omp_builder_version: 18.3.2
+omp_builder_version: 18.4.12
 omp_builder_herdr_version: 0.9.1
 omp_builder_go_version: 1.26.8
 omp_builder_node_version: 22.23.2
 omp_builder_platforms:
   x86_64:
     omp_arch: x64
-    omp_sha: 8cbbcd4bea7a7b86116a13352f31e3778fd4d93df931036bb1771738b0702534
+    omp_sha: 8178466631d09c2165c19c14c92ee7f4e3e68c5f41953e8815adfb1214a64999
     herdr_arch: x86_64
     herdr_sha: 2a02fed16beb651ef006e1d43f048f652ca4dc58ad053cd2d44450563d5c54b7
     go_arch: amd64
@@ -46,7 +55,7 @@ omp_builder_platforms:
     node_sha: d60acfe00a2932254bb0ad20e01b0d74397a0875595de719654b214f4b03f307
   aarch64:
     omp_arch: arm64
-    omp_sha: f56f4775abbf269c481c78799691eaa59a7d69644fa7d592c775e2c65f7b13da
+    omp_sha: 7e9c91e9f34765abfd775b8f87c00bb82d5c14025d58770fe4213791452f3182
     herdr_arch: aarch64
     herdr_sha: f4ccf4de745f2cb9a39a983e9ba3703dad50ec2a58dea83026ceab721bbd8d9e
     go_arch: arm64
