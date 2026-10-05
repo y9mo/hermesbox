@@ -22,6 +22,7 @@ ansible-galaxy collection install hetzner.hcloud community.general
 | 5 | `test-hermes.yml` | Run a one-shot Hermes smoke test. |
 | 6 | `configure-hermes-discord.yml` | Configure Discord and optionally install the gateway service. |
 | 7 | `install-browser-automation.yml` | Optionally install Chromium, Browser Use, and its Hermes MCP registration. |
+| 8 | `install-cloudflare-access.yml` | Optionally install the Cloudflare connector and SSH certificate trust after provisioning Cloudflare. |
 
 Run a playbook from the repository root:
 
@@ -42,6 +43,7 @@ pilot installs native OMP roles; it does not depend on the Hermes CLI playbooks.
 
 - [Provisioning and base OS](../docs/provisioning.md)
 - [Tailscale](../docs/tailscale.md)
+- [Cloudflare Access and Termius](../docs/cloudflare-access.md)
 - [Hermes and Discord](../docs/hermes.md)
 - [Browser automation](../docs/browser-automation.md)
 - [Troubleshooting](../docs/troubleshooting.md)

@@ -23,6 +23,7 @@ The Ansible playbooks and their intended execution order are listed in
 | --- | --- |
 | Hetzner prerequisites, Terraform, inventory, and base OS | [Provisioning](docs/provisioning.md) |
 | Tailscale OAuth and enrollment | [Tailscale](docs/tailscale.md) |
+| Personal SSH alongside work Tailscale, Cloudflare and Termius | [Cloudflare Access](docs/cloudflare-access.md) |
 | Hermes installation, model provider, testing, and Discord | [Hermes](docs/hermes.md) |
 | Chromium, Browser Use, MCP, and stock checker | [Browser automation](docs/browser-automation.md) |
 | SSH and connectivity problems | [Troubleshooting](docs/troubleshooting.md) |
