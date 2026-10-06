@@ -214,7 +214,7 @@ an automatic restart to reload credentials or resume acceptance safely.
 | Role | Alias | Default model |
 |---|---|---|
 | Main coordinator | default / plan | ollama-cloud/deepseek-v4.1-flash:max |
-| Architect (default) | architect | ollama-cloud/glm-5.3:max |
+| Architect (default) | architect | mistral/zai-glm-5-3:xhigh |
 | Architect (alternative) | architect-astra | openai-codex/gpt-6.1-sol:medium |
 | Reviewer | reviewer | mistral/zai-glm-5-3:xhigh |
 | Reviewer Astra (advisory second opinion) | reviewer-astra | openai-codex/gpt-6.1-sol:medium |

@@ -151,7 +151,7 @@ class Helpers(unittest.TestCase):
         self.assertEqual(config["task"]["maxConcurrency"], 2)
         for role in ("default", "plan"):
             self.assertEqual(config["modelRoles"][role], "ollama-cloud/deepseek-v4.1-flash:max")
-        self.assertEqual(config["modelRoles"]["architect"], "ollama-cloud/glm-5.3:max")
+        self.assertEqual(config["modelRoles"]["architect"], "mistral/zai-glm-5-3:xhigh")
         self.assertEqual(config["modelRoles"]["reviewer"], "mistral/zai-glm-5-3:xhigh")
         self.assertEqual(config["modelRoles"]["architect_astra"],
                          "openai-codex/gpt-6.1-sol:medium")
