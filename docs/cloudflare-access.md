@@ -15,8 +15,10 @@ do not need to be copied into the VPS's `authorized_keys` for this access path.
 
 ## Status and limitation
 
-This configuration is prepared for deployment; it has not been applied to
-Cloudflare or Hermesbox. A domain, personal email and API credential are required.
+The chosen SSH hostname is `hermesbox.oct1v.xyz`. Deployment is in progress;
+Cloudflare resources may already exist after a partial Terraform apply. Rerun
+`terraform apply` from the same state to complete provisioning. VPS deployment
+and end-to-end access verification are still pending.
 
 Cloudflare labels the no-WARP certificate flow **legacy** and recommends Access
 for Infrastructure for new deployments. Access for Infrastructure uses the
@@ -88,8 +90,10 @@ Run from the repository root:
 rtk proxy cp terraform/cloudflare/terraform.tfvars.example terraform/cloudflare/terraform.tfvars
 ```
 
-Edit the ignored `terraform.tfvars` with your account ID, zone ID, dedicated
-hostname, exact personal email and existing SSH account. Use a lowercase email.
+Edit the ignored `terraform.tfvars` with your account ID, zone ID,
+`ssh_hostname = "hermesbox.oct1v.xyz"`, exact personal email and existing SSH
+account. Use a lowercase email. If this file is already populated, keep it;
+do not overwrite it with the example file.
 Use a new hostname or import an existing DNS record before applying. Import an
 existing email PIN identity provider rather than creating a duplicate if one
 already exists in the account.
@@ -111,11 +115,10 @@ Install the Mac connector helper:
 
 ```sh
 rtk proxy brew install cloudflared
-rtk proxy cloudflared access ssh-config --hostname ssh.example.com --short-lived-cert
+rtk proxy cloudflared access ssh-config --hostname hermesbox.oct1v.xyz --short-lived-cert
 ```
 
-Replace the example hostname with yours. The second command prints an OpenSSH
-configuration; add it to `~/.ssh/config` and set `User root` (or your selected
+The second command prints an OpenSSH configuration; add it to `~/.ssh/config` and set `User root` (or your selected
 `ssh_user`) in that host's configuration. Use the printed binary path: Apple
 Silicon Homebrew normally installs `cloudflared` under `/opt/homebrew/bin`.
 Keep the generated `Match ... exec`, `IdentityFile`, `CertificateFile` and
@@ -124,8 +127,8 @@ Keep the generated `Match ... exec`, `IdentityFile`, `CertificateFile` and
 Test in an interactive terminal first:
 
 ```sh
-rtk proxy ssh root@ssh.example.com
-rtk proxy herdr machine add ssh.example.com
+rtk proxy ssh root@hermesbox.oct1v.xyz
+rtk proxy herdr machine add hermesbox.oct1v.xyz
 ```
 
 The SSH command should open the Access login flow, require your email PIN and
@@ -133,7 +136,7 @@ MFA, issue a temporary certificate and connect. Herdr uses the SSH config host.
 If its noninteractive connection needs authentication renewal, use:
 
 ```sh
-rtk proxy herdr machine reconnect ssh.example.com
+rtk proxy herdr machine reconnect hermesbox.oct1v.xyz
 ```
 
 ## Configure Termius on iPhone
