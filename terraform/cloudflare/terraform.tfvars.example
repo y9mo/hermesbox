@@ -1,0 +1,5 @@
+account_id   = "replace-with-cloudflare-account-id"
+zone_id      = "replace-with-cloudflare-zone-id"
+ssh_hostname = "ssh.example.com"
+access_email = "you@example.com"
+ssh_user     = "root"

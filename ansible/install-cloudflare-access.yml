@@ -1,0 +1,166 @@
+---
+- name: Configure Cloudflare SSH access on Hermesbox
+  hosts: hcloud_server_hermesbox
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Validate Cloudflare deployment inputs
+      ansible.builtin.assert:
+        that:
+          - cloudflare_tunnel_token | default('') | length > 0
+          - >-
+            cloudflare_ssh_ca | default('') is match('^ecdsa-sha2-nistp256 [A-Za-z0-9+/=]+(?: [^\r\n]*)?$')
+          - cloudflare_ssh_user | default('') is match('^[a-z_][a-z0-9_-]*$')
+          - cloudflare_ssh_principal | default('') is match('^[A-Za-z0-9_.+%-]+$')
+        fail_msg: Pass the protected Terraform ansible_vars output as an extra-vars file.
+      no_log: true
+
+    - name: Verify the selected SSH account exists
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ cloudflare_ssh_user }}"
+
+    - name: Read existing SSH certificate settings
+      ansible.builtin.command:
+        argv: [/usr/sbin/sshd, -T]
+      register: cloudflare_existing_sshd
+      changed_when: false
+      check_mode: false
+
+    - name: Preserve any separately configured SSH certificate authority
+      ansible.builtin.assert:
+        that:
+          - >-
+            'trustedusercakeys none' in cloudflare_existing_sshd.stdout_lines or
+            'trustedusercakeys /etc/ssh/cloudflare-ca.pub' in cloudflare_existing_sshd.stdout_lines
+          - >-
+            'authorizedprincipalsfile none' in cloudflare_existing_sshd.stdout_lines or
+            'authorizedprincipalsfile /etc/ssh/cloudflare-principals/%u' in cloudflare_existing_sshd.stdout_lines
+        fail_msg: Existing SSH certificate settings need to be integrated before this playbook can run.
+
+    - name: Install Cloudflare package prerequisites
+      ansible.builtin.apt:
+        name: [ca-certificates, openssh-server]
+        state: present
+        update_cache: true
+
+    - name: Ensure package keyring directory exists
+      ansible.builtin.file:
+        path: /usr/share/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Install the Cloudflare package signing key
+      ansible.builtin.get_url:
+        url: https://pkg.cloudflare.com/cloudflare-main.gpg
+        dest: /usr/share/keyrings/cloudflare-main.gpg
+        mode: "0644"
+
+    - name: Configure the stable Cloudflare apt repository
+      ansible.builtin.copy:
+        content: "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main\n"
+        dest: /etc/apt/sources.list.d/cloudflared.list
+        mode: "0644"
+
+    - name: Install cloudflared
+      ansible.builtin.apt:
+        name: cloudflared
+        state: present
+        update_cache: true
+
+    - name: Ensure connector configuration directory exists
+      ansible.builtin.file:
+        path: /etc/cloudflared
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Store the tunnel token without exposing it in process arguments
+      ansible.builtin.copy:
+        content: "{{ cloudflare_tunnel_token }}\n"
+        dest: /etc/cloudflared/hermesbox.token
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+      notify: Restart Hermesbox Cloudflare connector
+
+    - name: Install the SSH certificate authority public key
+      ansible.builtin.copy:
+        content: "{{ cloudflare_ssh_ca | trim }}\n"
+        dest: /etc/ssh/cloudflare-ca.pub
+        owner: root
+        group: root
+        mode: "0644"
+        validate: /usr/bin/ssh-keygen -l -f %s
+      notify: Validate and reload SSH
+
+    - name: Create SSH principal mapping directory
+      ansible.builtin.file:
+        path: /etc/ssh/cloudflare-principals
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Allow the personal certificate principal into the selected Unix account
+      ansible.builtin.copy:
+        content: "{{ cloudflare_ssh_principal }}\n"
+        dest: "/etc/ssh/cloudflare-principals/{{ cloudflare_ssh_user }}"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Validate and reload SSH
+
+    - name: Configure SSH certificate authentication
+      ansible.builtin.copy:
+        content: |
+          # Managed by Ansible. Existing authorized_keys remain valid.
+          TrustedUserCAKeys /etc/ssh/cloudflare-ca.pub
+          AuthorizedPrincipalsFile /etc/ssh/cloudflare-principals/%u
+        dest: /etc/ssh/sshd_config.d/00-cloudflare-access.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Validate and reload SSH
+
+    - name: Install the Hermesbox connector service
+      ansible.builtin.template:
+        src: cloudflare-hermesbox.service.j2
+        dest: /etc/systemd/system/cloudflare-hermesbox.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart Hermesbox Cloudflare connector
+
+    - name: Apply SSH and connector configuration
+      ansible.builtin.meta: flush_handlers
+
+    - name: Enable and start the connector
+      ansible.builtin.systemd_service:
+        name: cloudflare-hermesbox
+        daemon_reload: true
+        enabled: true
+        state: started
+
+  handlers:
+    - name: Validate SSH configuration
+      ansible.builtin.command:
+        argv: [/usr/sbin/sshd, -t]
+      changed_when: false
+      listen: Validate and reload SSH
+
+    - name: Reload SSH
+      ansible.builtin.systemd_service:
+        name: ssh
+        state: reloaded
+      listen: Validate and reload SSH
+
+    - name: Restart Hermesbox Cloudflare connector
+      ansible.builtin.systemd_service:
+        name: cloudflare-hermesbox
+        daemon_reload: true
+        enabled: true
+        state: restarted

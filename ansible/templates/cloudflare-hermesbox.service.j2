@@ -1,0 +1,17 @@
+[Unit]
+Description=Cloudflare Tunnel for Hermesbox
+Wants=network-online.target
+After=network-online.target ssh.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/cloudflared tunnel --no-autoupdate run --token-file /etc/cloudflared/hermesbox.token
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
