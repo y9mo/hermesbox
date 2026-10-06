@@ -64,7 +64,7 @@ requires a separate change.
 2. Create a Zero Trust organization and choose the **Free** plan. If one already
    exists, use it; this Terraform root does not replace account-wide settings.
 3. Enable **independent MFA** in Zero Trust's Access settings. The application
-   policy requires a passkey or security key as a second factor after email PIN
+   policy requires a security key as a second factor after email PIN
    login. Enroll a recovery authenticator as well.
 4. Create a scoped API token for this account and DNS zone with:
    - Cloudflare Tunnel: Edit

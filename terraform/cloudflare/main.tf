@@ -40,7 +40,7 @@ resource "cloudflare_zero_trust_access_policy" "owner" {
   # Independent MFA must first be enabled in the Zero Trust organization.
   mfa_config = {
     mfa_disabled           = false
-    allowed_authenticators = ["biometrics", "security_key"]
+    allowed_authenticators = ["security_key"]
     session_duration       = "1h"
   }
 }
